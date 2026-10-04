@@ -30,7 +30,7 @@ function Navbar() {
     <header className="nav-shell">
       <nav className="nav container" aria-label="Main navigation">
         <a className="brand" href="#top" aria-label="Thueman Coke Limited home">
-          <img src="/images/thueman-coke-logo.png" alt="" />
+          <img src="./images/thueman-coke-logo.png" alt="" />
           <span><strong>Thueman Coke</strong><small>Limited</small></span>
         </a>
 
@@ -170,7 +170,7 @@ function About() {
       <div className="container about-grid">
         <div className="about-photo">
           <div className="photo-overlay">
-            <img src="/images/thueman-coke-logo.png" alt="Thueman Coke Limited technology identity" />
+            <img src="./images/thueman-coke-logo.png" alt="Thueman Coke Limited technology identity" />
           </div>
         </div>
         <div className="about-copy">
@@ -319,7 +319,7 @@ function Footer() {
     <footer>
       <div className="container footer-grid">
         <div className="footer-brand">
-          <img src="/images/thueman-coke-logo.png" alt="" />
+          <img src="./images/thueman-coke-logo.png" alt="" />
           <div><strong>Thueman Coke Limited</strong><span>Technology solutions for a smarter tomorrow.</span></div>
         </div>
         <div>
