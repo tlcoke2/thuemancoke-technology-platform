@@ -255,12 +255,18 @@ function Contact() {
     e.preventDefault();
 
     const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    const payload = {
+      name: String(formData.get("name") || "").trim(),
+      email: String(formData.get("email") || "").trim(),
+      organisation: String(formData.get("organisation") || "").trim() || null,
+      service: String(formData.get("service") || "").trim() || null,
+      message: String(formData.get("message") || "").trim(),
+      consent: formData.get("consent") === "true",
+    };
 
     setState({ status: "loading", message: "Sending…" });
-
-    const payload = Object.fromEntries(
-      new FormData(form).entries()
-    );
 
     try {
       const response = await fetch(`${API_URL}/api/contact`, {
@@ -272,7 +278,15 @@ function Contact() {
       const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(result.detail || "Unable to submit your enquiry.");
+        let errorMessage = "Unable to submit your enquiry.";
+
+        if (Array.isArray(result.detail)) {
+          errorMessage = result.detail.map((item) => item.msg).join(" ");
+        } else if (typeof result.detail === "string") {
+          errorMessage = result.detail;
+        }
+
+        throw new Error(errorMessage);
       }
 
       setState({
@@ -303,10 +317,10 @@ function Contact() {
 
         <form className="contact-form" onSubmit={submit}>
           <div className="field-row">
-            <label>Full name<input required name="name" autoComplete="name" /></label>
+            <label>Full name<input required minLength="2" maxLength="160" name="name" autoComplete="name" /></label>
             <label>Business email<input required type="email" name="email" autoComplete="email" /></label>
           </div>
-          <label>Organisation<input name="organisation" autoComplete="organization" /></label>
+          <label>Organisation<input name="organisation" maxLength="255" autoComplete="organization" /></label>
           <label>
             Area of interest
             <select name="service" defaultValue="">
@@ -315,7 +329,7 @@ function Contact() {
               <option>Technology strategy / other</option>
             </select>
           </label>
-          <label>What would you like to achieve?<textarea required name="message" rows="5" /></label>
+          <label>What would you like to achieve?<textarea required minLength="10" maxLength="5000" name="message" rows="5" /></label>
           <label className="consent">
             <input required type="checkbox" name="consent" value="true" />
             <span>I consent to being contacted about this enquiry.</span>
