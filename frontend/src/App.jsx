@@ -275,8 +275,6 @@ function Contact() {
         throw new Error(result.detail || "Unable to submit your enquiry.");
       }
 
-      form.reset();
-
       setState({
         status: "success",
         message: "Thank you. Your enquiry has been received.",
