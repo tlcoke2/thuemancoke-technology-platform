@@ -28,7 +28,15 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-
+@app.get("/")
+def root():
+    return {
+        "service": "Thueman Coke Limited API",
+        "status": "online",
+        "website": "https://thuemancokelimited.com",
+        "health": "/api/health",
+    }
+    
 @app.get("/api/health")
 def health():
     return {"ok": True, "service": "thueman-coke-api", "environment": settings.app_env}
