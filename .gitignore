@@ -1,0 +1,21 @@
+node_modules/
+frontend/dist/
+frontend/.vite/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+frontend/.env
+backend/.env
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Local development databases
+backend/*.db
