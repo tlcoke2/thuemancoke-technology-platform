@@ -253,8 +253,14 @@ function Contact() {
 
   async function submit(e) {
     e.preventDefault();
+
+    const form = e.currentTarget;
+
     setState({ status: "loading", message: "Sending…" });
-    const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
+
+    const payload = Object.fromEntries(
+      new FormData(form).entries()
+    );
 
     try {
       const response = await fetch(`${API_URL}/api/contact`, {
@@ -262,14 +268,26 @@ function Contact() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.detail || "Unable to submit your enquiry.");
-      e.currentTarget.reset();
-      setState({ status: "success", message: "Thank you. Your enquiry has been received." });
+
+      if (!response.ok) {
+        throw new Error(result.detail || "Unable to submit your enquiry.");
+      }
+
+      form.reset();
+
+      setState({
+        status: "success",
+        message: "Thank you. Your enquiry has been received.",
+      });
     } catch (error) {
-      setState({ status: "error", message: error.message || "Something went wrong. Please try again." });
+      setState({
+        status: "error",
+        message: error.message || "Something went wrong. Please try again.",
+      });
     }
-  }
+}
 
   return (
     <section className="section contact-section" id="contact">
