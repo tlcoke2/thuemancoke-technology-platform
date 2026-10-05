@@ -34,7 +34,7 @@ function Navbar() {
           <span><strong>Thueman Coke</strong><small>Limited</small></span>
         </a>
 
-        <button className="mobile-menu" onClick={() => setOpen(!open)} aria-label="Open menu">
+        <button className="mobile-menu" onClick={() => setOpen(!open)} aria-label="Open menu" aria-expanded={open}>
           {open ? <X /> : <Menu />}
         </button>
 
@@ -264,6 +264,7 @@ function Contact() {
       service: String(formData.get("service") || "").trim() || null,
       message: String(formData.get("message") || "").trim(),
       consent: formData.get("consent") === "true",
+      website: String(formData.get("website") || "").trim() || null,
     };
 
     setState({ status: "loading", message: "Sending…" });
@@ -310,12 +311,13 @@ function Contact() {
           <p className="large-copy">Tell us what you are trying to achieve. We will use the first discussion to identify the most practical next step.</p>
           <div className="contact-points">
             <span><Globe2 /> UK · Europe · USA · Caribbean</span>
-            <span><Mail /> Business and project enquiries</span>
+            <span><Mail /> <a href="mailto:tlcoke@hotmail.com">tlcoke@hotmail.com</a></span>
             <span><MapPin /> Remote and on-site delivery by arrangement</span>
           </div>
         </div>
 
-        <form className="contact-form" onSubmit={submit}>
+        <form className="contact-form" onSubmit={submit} noValidate={false}>
+          <label className="hp-field" aria-hidden="true">Website<input name="website" tabIndex="-1" autoComplete="off" /></label>
           <div className="field-row">
             <label>Full name<input required minLength="2" maxLength="160" name="name" autoComplete="name" /></label>
             <label>Business email<input required type="email" name="email" autoComplete="email" /></label>
@@ -332,12 +334,12 @@ function Contact() {
           <label>What would you like to achieve?<textarea required minLength="10" maxLength="5000" name="message" rows="5" /></label>
           <label className="consent">
             <input required type="checkbox" name="consent" value="true" />
-            <span>I consent to being contacted about this enquiry.</span>
+            <span>I consent to being contacted about this enquiry. See our <a href="./privacy.html">privacy notice</a>.</span>
           </label>
           <button className="btn" disabled={state.status === "loading"}>
             {state.status === "loading" ? "Sending…" : "Send enquiry"} <ArrowRight size={18} />
           </button>
-          {state.message && <p className={`form-status ${state.status}`}>{state.message}</p>}
+          {state.message && <p className={`form-status ${state.status}`} role="status" aria-live="polite">{state.message}</p>}
         </form>
       </div>
     </section>
@@ -364,6 +366,8 @@ function Footer() {
           <a href="#about">About</a>
           <a href="#approach">Approach</a>
           <a href="#contact">Contact</a>
+          <a href="./privacy.html">Privacy</a>
+          <a href="mailto:tlcoke@hotmail.com">Email us</a>
         </div>
       </div>
       <div className="container footer-bottom">
