@@ -8,6 +8,7 @@ class ContactCreate(BaseModel):
     service: str | None = Field(default=None, max_length=255)
     message: str = Field(min_length=10, max_length=5000)
     consent: bool
+    website: str | None = Field(default=None, max_length=500)
 
 
 class ContactResponse(BaseModel):
