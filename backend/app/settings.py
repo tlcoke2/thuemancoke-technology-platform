@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./thuemancoke.db"
     allowed_origins: str = "http://localhost:5173"
 
-    contact_to_email: str | None = None
+    contact_to_email: str | None = "tlcoke@hotmail.com"
     from_email: str | None = None
     smtp_host: str | None = None
     smtp_port: int = 465
