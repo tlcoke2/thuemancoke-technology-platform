@@ -82,6 +82,9 @@ def send_notification(lead: ContactLead) -> None:
 
 @app.post("/api/contact", response_model=ContactResponse, status_code=201)
 def create_contact(payload: ContactCreate, db: Session = Depends(get_db)):
+    if payload.website:
+        return ContactResponse(ok=True, id=0, message="Your enquiry has been received.")
+
     if not payload.consent:
         raise HTTPException(status_code=400, detail="Consent is required.")
 
