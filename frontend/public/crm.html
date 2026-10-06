@@ -73,7 +73,7 @@ table{width:100%;border-collapse:collapse;min-width:1240px}th,td{text-align:left
 </section>
 
 <section class="panel">
-<div class="toolbar"><h2>Pipeline</h2><div class="actions"><label>Stage filter<select id="stageFilter"><option value="">All stages</option><option value="new">New Lead</option><option value="contacted">Contacted</option><option value="follow_up">Follow-up</option><option value="meeting">Meeting</option><option value="proposal">Proposal</option><option value="won">Won</option><option value="lost">Lost</option></select></label><button class="secondary" id="refreshBtn">Refresh</button></div></div>
+<div class="toolbar"><h2>Pipeline</h2><div class="actions"><button class="secondary" id="seedBtn">Load starter pipeline</button><label>Stage filter<select id="stageFilter"><option value="">All stages</option><option value="new">New Lead</option><option value="contacted">Contacted</option><option value="follow_up">Follow-up</option><option value="meeting">Meeting</option><option value="proposal">Proposal</option><option value="won">Won</option><option value="lost">Lost</option></select></label><button class="secondary" id="refreshBtn">Refresh</button></div></div>
 <div class="table-wrap"><table><thead><tr><th>Organisation / Contact</th><th>Stage</th><th>Value</th><th>Probability</th><th>Next action</th><th>Due</th><th>Service / Sector</th><th>Notes</th><th>Save</th></tr></thead><tbody id="leadRows"></tbody></table></div>
 </section>
 </div>
@@ -152,7 +152,7 @@ function lock(){
   sessionStorage.removeItem("tcl_crm_key");key="";
   $("crmApp").classList.add("hidden");$("loginPanel").classList.remove("hidden");$("logoutBtn").classList.add("hidden");$("connectionStatus").textContent="Not connected";$("adminKey").value="";
 }
-$("connectBtn").addEventListener("click",connect);$("logoutBtn").addEventListener("click",lock);$("refreshBtn").addEventListener("click",load);$("stageFilter").addEventListener("change",load);
+$("connectBtn").addEventListener("click",connect);$("logoutBtn").addEventListener("click",lock);$("refreshBtn").addEventListener("click",load);$("stageFilter").addEventListener("change",load);$("seedBtn").addEventListener("click",async()=>{try{const r=await api("/api/crm/seed-starter",{method:"POST"});msg(`${r.created} starter lead(s) added; ${r.skipped} already present.`,"ok");await load();}catch(e){msg(e.message,"error");}});
 $("leadForm").addEventListener("submit",async(e)=>{
  e.preventDefault();const fd=new FormData(e.currentTarget);
  const payload={};
