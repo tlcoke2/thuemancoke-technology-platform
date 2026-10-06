@@ -53,3 +53,29 @@ class SalesLead(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         index=True,
     )
+
+
+class SalesProposal(Base):
+    __tablename__ = "sales_proposals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    lead_id: Mapped[int] = mapped_column(Integer, index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    executive_summary: Mapped[str] = mapped_column(Text)
+    scope: Mapped[str] = mapped_column(Text)
+    commercial_terms: Mapped[str] = mapped_column(Text)
+    amount: Mapped[float] = mapped_column(Float, default=0)
+    currency: Mapped[str] = mapped_column(String(8), default="GBP")
+    status: Mapped[str] = mapped_column(String(40), default="draft", index=True)
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
