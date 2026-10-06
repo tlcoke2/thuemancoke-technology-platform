@@ -126,3 +126,33 @@ class ProposalResponse(BaseModel):
     valid_until: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class ProposalVersionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    proposal_id: int
+    version_number: int
+    title: str
+    executive_summary: str
+    scope: str
+    commercial_terms: str
+    amount: float
+    currency: str
+    status: str
+    created_at: datetime
+
+
+class RevenueForecast(BaseModel):
+    total_leads: int
+    open_opportunities: int
+    won_count: int
+    lost_count: int
+    conversion_rate: float
+    by_stage: dict[str, int]
+    open_pipeline_value: dict[str, float]
+    weighted_pipeline_value: dict[str, float]
+    proposal_value: dict[str, float]
+    won_value: dict[str, float]
+    proposals_by_status: dict[str, int]
