@@ -95,3 +95,34 @@ class PipelineSummary(BaseModel):
     weighted_pipeline_value: dict[str, float]
     overdue_actions: int
     actions_due_next_7_days: int
+
+
+ProposalStatus = Literal["draft", "sent", "accepted", "rejected", "expired"]
+
+
+class ProposalUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=3, max_length=255)
+    executive_summary: str | None = Field(default=None, min_length=10, max_length=10000)
+    scope: str | None = Field(default=None, min_length=10, max_length=20000)
+    commercial_terms: str | None = Field(default=None, min_length=10, max_length=10000)
+    amount: float | None = Field(default=None, ge=0)
+    currency: str | None = Field(default=None, min_length=3, max_length=8)
+    status: ProposalStatus | None = None
+    valid_until: datetime | None = None
+
+
+class ProposalResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    lead_id: int
+    title: str
+    executive_summary: str
+    scope: str
+    commercial_terms: str
+    amount: float
+    currency: str
+    status: str
+    valid_until: datetime | None
+    created_at: datetime
+    updated_at: datetime
