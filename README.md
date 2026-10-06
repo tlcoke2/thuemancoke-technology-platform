@@ -7,7 +7,8 @@ Production starter for **https://thuemancokelimited.com**
 - Frontend: React + Vite, published with GitHub Pages
 - Backend: FastAPI on Railway
 - Database: PostgreSQL on Railway
-- DNS / domain: HostGator remains authoritative
+- Registrar: HostGator
+- Authoritative DNS: Cloudflare Free
 - Production frontend: `https://thuemancokelimited.com`
 - Production API: `https://api.thuemancokelimited.com`
 
@@ -121,11 +122,11 @@ Then:
    - `SMTP_USE_SSL`
 7. Generate a Railway domain and test `/api/health`.
 8. Add custom domain `api.thuemancokelimited.com`.
-9. Railway will show a CNAME target. Use that exact value in HostGator DNS.
+9. Railway will show a CNAME target. Use that exact value in Cloudflare DNS.
 
-## HostGator DNS
+## Cloudflare DNS
 
-Keep HostGator nameservers and email MX records.
+HostGator is the registrar only. Cloudflare is authoritative DNS. Keep the frontend GitHub Pages records DNS-only unless there is a deliberate later change to the architecture. Preserve unrelated mail and application records.
 
 Apex website records:
 
@@ -171,7 +172,61 @@ curl.exe -I https://thuemancokelimited.com
 6. Confirm API HTTPS.
 7. Enable GitHub Pages.
 8. Configure GitHub custom domain.
-9. Change apex/www DNS at HostGator.
+9. Configure apex/www DNS in Cloudflare.
 10. Enable GitHub Enforce HTTPS after certificate provisioning.
 11. Test site, form, mobile, DNS and email.
-12. Keep the old HostGator website backup until the new site is confirmed stable.
+12. Keep a recoverable backup and verify production health after every material change.
+
+
+## Internal commercial CRM
+
+The sales CRM is served from `frontend/public/crm.html` and uses protected Railway API routes under `/api/crm/`.
+
+Production CRM URL:
+
+```text
+https://thuemancokelimited.com/crm.html
+```
+
+Security:
+
+- The page is marked `noindex,nofollow,noarchive` and disallowed in `robots.txt`.
+- All CRM data access is protected by the Railway-only `CRM_ADMIN_KEY`.
+- The browser keeps the key in `sessionStorage`, not in GitHub source.
+- Never commit the production CRM key.
+
+Pipeline stages:
+
+```text
+New Lead -> Contacted -> Follow-up -> Meeting -> Proposal -> Won / Lost
+```
+
+Default planning probabilities:
+
+```text
+New Lead 10%
+Contacted 20%
+Follow-up 30%
+Meeting 50%
+Proposal 70%
+Won 100%
+Lost 0%
+```
+
+CRM features include:
+
+- lead and opportunity tracking
+- multi-currency estimated values
+- next-action dates and overdue tracking
+- weighted pipeline forecasting
+- proposal generation and PDF/print output
+- proposal version history
+- accepted/rejected outcome handling
+- won-revenue and conversion-rate reporting
+- CSV export
+
+The public advertising offer is at:
+
+```text
+https://thuemancokelimited.com/advertise.html
+```
