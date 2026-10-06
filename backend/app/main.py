@@ -5,16 +5,19 @@ from email.message import EmailMessage
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_db
-from .models import ContactLead, SalesLead, SalesProposal
+from .models import ContactLead, ProposalVersion, SalesLead, SalesProposal
 from .schemas import (
     ContactCreate,
     ContactResponse,
     PipelineSummary,
     ProposalResponse,
     ProposalUpdate,
+    ProposalVersionResponse,
+    RevenueForecast,
     SalesLeadCreate,
     SalesLeadResponse,
     SalesLeadUpdate,
@@ -394,6 +397,28 @@ def proposal_terms_for(lead: SalesLead) -> str:
     )
 
 
+def snapshot_proposal(proposal: SalesProposal, db: Session) -> ProposalVersion:
+    latest = (
+        db.query(func.max(ProposalVersion.version_number))
+        .filter(ProposalVersion.proposal_id == proposal.id)
+        .scalar()
+    ) or 0
+    version = ProposalVersion(
+        proposal_id=proposal.id,
+        version_number=int(latest) + 1,
+        title=proposal.title,
+        executive_summary=proposal.executive_summary,
+        scope=proposal.scope,
+        commercial_terms=proposal.commercial_terms,
+        amount=float(proposal.amount or 0),
+        currency=(proposal.currency or "GBP").upper(),
+        status=proposal.status,
+    )
+    db.add(version)
+    db.flush()
+    return version
+
+
 @app.post(
     "/api/crm/leads/{lead_id}/proposal",
     response_model=ProposalResponse,
@@ -427,6 +452,8 @@ def generate_sales_proposal(lead_id: int, db: Session = Depends(get_db)):
         valid_until=now + timedelta(days=30),
     )
     db.add(proposal)
+    db.flush()
+    snapshot_proposal(proposal, db)
     db.commit()
     db.refresh(proposal)
     return proposal
@@ -442,6 +469,23 @@ def list_sales_proposals(lead_id: int | None = None, db: Session = Depends(get_d
     if lead_id is not None:
         query = query.filter(SalesProposal.lead_id == lead_id)
     return query.order_by(SalesProposal.updated_at.desc()).all()
+
+
+@app.get(
+    "/api/crm/proposals/{proposal_id}/versions",
+    response_model=list[ProposalVersionResponse],
+    dependencies=[Depends(require_crm_key)],
+)
+def list_proposal_versions(proposal_id: int, db: Session = Depends(get_db)):
+    proposal = db.get(SalesProposal, proposal_id)
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found.")
+    return (
+        db.query(ProposalVersion)
+        .filter(ProposalVersion.proposal_id == proposal_id)
+        .order_by(ProposalVersion.version_number.desc())
+        .all()
+    )
 
 
 @app.patch(
@@ -463,15 +507,103 @@ def update_sales_proposal(proposal_id: int, payload: ProposalUpdate, db: Session
 
     proposal.updated_at = datetime.now(timezone.utc)
 
-    if data.get("status") == "sent":
-        lead = db.get(SalesLead, proposal.lead_id)
-        if lead:
-            lead.stage = "proposal"
-            lead.probability = STAGE_PROBABILITY["proposal"]
-            lead.next_action = "Follow up on proposal."
-            lead.next_action_at = datetime.now(timezone.utc) + timedelta(days=5)
-            lead.updated_at = datetime.now(timezone.utc)
+    lead = db.get(SalesLead, proposal.lead_id)
+    status = data.get("status")
+    if lead and status == "sent":
+        lead.stage = "proposal"
+        lead.probability = STAGE_PROBABILITY["proposal"]
+        lead.next_action = "Follow up on proposal."
+        lead.next_action_at = datetime.now(timezone.utc) + timedelta(days=5)
+        lead.updated_at = datetime.now(timezone.utc)
+    elif lead and status == "accepted":
+        lead.stage = "won"
+        lead.probability = STAGE_PROBABILITY["won"]
+        lead.next_action = "Begin onboarding and project mobilisation."
+        lead.next_action_at = datetime.now(timezone.utc) + timedelta(days=2)
+        lead.updated_at = datetime.now(timezone.utc)
+    elif lead and status in {"rejected", "expired"}:
+        lead.stage = "lost"
+        lead.probability = STAGE_PROBABILITY["lost"]
+        lead.next_action = "Record outcome and lessons learned."
+        lead.next_action_at = None
+        lead.updated_at = datetime.now(timezone.utc)
 
+    db.flush()
+    snapshot_proposal(proposal, db)
     db.commit()
     db.refresh(proposal)
     return proposal
+
+
+
+@app.get(
+    "/api/crm/forecast",
+    response_model=RevenueForecast,
+    dependencies=[Depends(require_crm_key)],
+)
+def revenue_forecast(db: Session = Depends(get_db)):
+    leads = db.query(SalesLead).all()
+    proposals = db.query(SalesProposal).all()
+
+    by_stage = {stage: 0 for stage in STAGE_PROBABILITY}
+    open_pipeline_value: dict[str, float] = {}
+    weighted_pipeline_value: dict[str, float] = {}
+    proposal_value: dict[str, float] = {}
+    won_value: dict[str, float] = {}
+    proposals_by_status: dict[str, int] = {
+        "draft": 0,
+        "sent": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "expired": 0,
+    }
+
+    open_opportunities = 0
+    won_count = 0
+    lost_count = 0
+
+    for lead in leads:
+        by_stage[lead.stage] = by_stage.get(lead.stage, 0) + 1
+        currency = (lead.currency or "GBP").upper()
+        value = float(lead.estimated_value or 0)
+
+        if lead.stage == "won":
+            won_count += 1
+            won_value[currency] = round(won_value.get(currency, 0) + value, 2)
+        elif lead.stage == "lost":
+            lost_count += 1
+        else:
+            open_opportunities += 1
+            open_pipeline_value[currency] = round(
+                open_pipeline_value.get(currency, 0) + value, 2
+            )
+            weighted_pipeline_value[currency] = round(
+                weighted_pipeline_value.get(currency, 0)
+                + (value * int(lead.probability or 0) / 100),
+                2,
+            )
+
+    for proposal in proposals:
+        proposals_by_status[proposal.status] = proposals_by_status.get(proposal.status, 0) + 1
+        if proposal.status in {"sent", "accepted"}:
+            currency = (proposal.currency or "GBP").upper()
+            proposal_value[currency] = round(
+                proposal_value.get(currency, 0) + float(proposal.amount or 0), 2
+            )
+
+    closed = won_count + lost_count
+    conversion_rate = round((won_count / closed * 100), 1) if closed else 0.0
+
+    return RevenueForecast(
+        total_leads=len(leads),
+        open_opportunities=open_opportunities,
+        won_count=won_count,
+        lost_count=lost_count,
+        conversion_rate=conversion_rate,
+        by_stage=by_stage,
+        open_pipeline_value=open_pipeline_value,
+        weighted_pipeline_value=weighted_pipeline_value,
+        proposal_value=proposal_value,
+        won_value=won_value,
+        proposals_by_status=proposals_by_status,
+    )
