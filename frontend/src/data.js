@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   HeartPulse,
   Globe2,
+  Megaphone,
 } from "lucide-react";
 
 export const services = [
@@ -57,6 +58,12 @@ export const services = [
     title: "Websites & Digital Experience",
     text: "Modern business websites, secure hosting, online services, search optimisation, analytics and long-term digital management.",
     tags: ["Web", "SEO", "UX"],
+  },
+  {
+    icon: Megaphone,
+    title: "Business Promotion & Digital Advertising",
+    text: "Campaign planning, sponsored business features, landing pages, lead-generation support and managed digital promotion for organisations that want greater visibility.",
+    tags: ["Promotion", "Campaigns", "Lead generation"],
   },
 ];
 
