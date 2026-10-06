@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /crm.html
 
 Sitemap: https://thuemancokelimited.com/sitemap.xml
