@@ -236,3 +236,122 @@ def pipeline_summary(db: Session = Depends(get_db)):
         overdue_actions=overdue,
         actions_due_next_7_days=due_next_7,
     )
+
+
+STARTER_PIPELINE = [
+    {
+        "organisation": "Biomedical Caledonia Medical Laboratory Limited",
+        "contact_name": "Helen Christian",
+        "contact_email": "info@biomedicaljm.com",
+        "website": "https://biomedicaljm.com",
+        "sector": "Healthcare & Diagnostics",
+        "country": "Jamaica",
+        "source": "Public web research / company publication",
+        "service_interest": "Cybersecurity, healthcare technology, integrations, resilience",
+        "stage": "new",
+        "estimated_value": 12000,
+        "currency": "GBP",
+        "probability": 10,
+        "next_action": "Review and send personalised outreach draft; propose a cybersecurity and digital-health discovery call.",
+        "notes": "Internal planning estimate only. Public company material identifies Helen Christian as CEO and describes ongoing cybersecurity programme work following a 2025 incident.",
+    },
+    {
+        "organisation": "Microlabs Limited",
+        "contact_name": "Trevor Campbell",
+        "contact_email": "tcampbell@microlabs.limited",
+        "website": "https://www.microlabs.limited",
+        "sector": "Healthcare & Diagnostics",
+        "country": "Jamaica",
+        "source": "Public web research / JANAAC",
+        "service_interest": "LIMS integration, cybersecurity, reporting, automation",
+        "stage": "new",
+        "estimated_value": 8000,
+        "currency": "GBP",
+        "probability": 10,
+        "next_action": "Review and send personalised outreach draft; offer a laboratory systems and cybersecurity assessment.",
+        "notes": "Internal planning estimate only. JANAAC lists Trevor Campbell as Managing Director and Microlabs as ISO 15189:2022 accredited.",
+    },
+    {
+        "organisation": "Central Medical Laboratories Limited",
+        "contact_name": "Audrey Clarke",
+        "contact_email": "cmlabs@cwjamaica.com",
+        "website": "https://www.cmlabsja.com",
+        "sector": "Healthcare & Diagnostics",
+        "country": "Jamaica",
+        "source": "Public web research / JANAAC / company site",
+        "service_interest": "LIS modernisation, integrations, analytics, cybersecurity",
+        "stage": "new",
+        "estimated_value": 10000,
+        "currency": "GBP",
+        "probability": 10,
+        "next_action": "Review and send personalised outreach draft; position a phased LIS, analytics and resilience review.",
+        "notes": "Internal planning estimate only. JANAAC lists Audrey Clarke as Managing Director. The company site describes a technology-driven LIS environment.",
+    },
+    {
+        "organisation": "LTN Logistics International Company Limited",
+        "contact_name": "Lorraine Thomas-Harris",
+        "contact_email": "lorraine.harris@ltnlogisticscompany.com",
+        "website": "https://www.ltnlogisticscompany.com",
+        "sector": "Logistics & Supply Chain",
+        "country": "Jamaica",
+        "source": "Public web research / Jamaica Trade Portal / company profile",
+        "service_interest": "Workflow automation, integrations, dashboards, cybersecurity",
+        "stage": "new",
+        "estimated_value": 12000,
+        "currency": "GBP",
+        "probability": 10,
+        "next_action": "Review and send personalised outreach draft; propose an operations automation and technology discovery session.",
+        "notes": "Internal planning estimate only. Public logistics sources identify Lorraine Thomas-Harris as CEO/President and describe technology integration and supply-chain services.",
+    },
+    {
+        "organisation": "Abendana & Abendana",
+        "contact_name": "Dane Anthony Marsh",
+        "contact_email": "office@abendana.com",
+        "website": "https://www.abendana.com",
+        "sector": "Professional Services / Legal",
+        "country": "Jamaica",
+        "source": "Public web research / company site",
+        "service_interest": "Cybersecurity, secure client workflows, cloud, digital platforms",
+        "stage": "new",
+        "estimated_value": 6000,
+        "currency": "GBP",
+        "probability": 10,
+        "next_action": "Review and send personalised outreach draft; offer a secure legal-technology and client-workflow assessment.",
+        "notes": "Internal planning estimate only. The firm site identifies Dane Anthony Marsh as Managing Partner and publishes office@abendana.com as its contact email.",
+    },
+]
+
+
+@app.post("/api/crm/seed-starter", dependencies=[Depends(require_crm_key)])
+def seed_starter_pipeline(db: Session = Depends(get_db)):
+    created = 0
+    skipped = 0
+    created_ids: list[int] = []
+
+    for item in STARTER_PIPELINE:
+        existing = (
+            db.query(SalesLead)
+            .filter(
+                SalesLead.organisation == item["organisation"],
+                SalesLead.contact_email == item["contact_email"],
+            )
+            .first()
+        )
+        if existing:
+            skipped += 1
+            continue
+
+        lead = SalesLead(**item)
+        db.add(lead)
+        db.flush()
+        created_ids.append(lead.id)
+        created += 1
+
+    db.commit()
+    return {
+        "ok": True,
+        "created": created,
+        "skipped": skipped,
+        "created_ids": created_ids,
+        "message": "Starter pipeline loaded.",
+    }
