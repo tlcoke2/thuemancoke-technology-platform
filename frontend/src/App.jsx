@@ -366,6 +366,7 @@ function Footer() {
           <a href="#about">About</a>
           <a href="#approach">Approach</a>
           <a href="#contact">Contact</a>
+          <a href="./advertise.html">Advertise with us</a>
           <a href="./privacy.html">Privacy</a>
           <a href="mailto:tlcoke@hotmail.com">Email us</a>
         </div>
