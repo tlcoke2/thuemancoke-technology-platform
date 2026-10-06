@@ -437,6 +437,14 @@ def generate_sales_proposal(lead_id: int, db: Session = Depends(get_db)):
         .first()
     )
     if existing:
+        version_count = (
+            db.query(ProposalVersion)
+            .filter(ProposalVersion.proposal_id == existing.id)
+            .count()
+        )
+        if version_count == 0:
+            snapshot_proposal(existing, db)
+            db.commit()
         return existing
 
     now = datetime.now(timezone.utc)
