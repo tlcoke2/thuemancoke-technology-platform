@@ -79,3 +79,23 @@ class SalesProposal(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         index=True,
     )
+
+
+class ProposalVersion(Base):
+    __tablename__ = "proposal_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    proposal_id: Mapped[int] = mapped_column(Integer, index=True)
+    version_number: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String(255))
+    executive_summary: Mapped[str] = mapped_column(Text)
+    scope: Mapped[str] = mapped_column(Text)
+    commercial_terms: Mapped[str] = mapped_column(Text)
+    amount: Mapped[float] = mapped_column(Float, default=0)
+    currency: Mapped[str] = mapped_column(String(8), default="GBP")
+    status: Mapped[str] = mapped_column(String(40), default="draft")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
