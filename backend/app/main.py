@@ -8,11 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_db
-from .models import ContactLead, SalesLead
+from .models import ContactLead, SalesLead, SalesProposal
 from .schemas import (
     ContactCreate,
     ContactResponse,
     PipelineSummary,
+    ProposalResponse,
+    ProposalUpdate,
     SalesLeadCreate,
     SalesLeadResponse,
     SalesLeadUpdate,
@@ -355,3 +357,121 @@ def seed_starter_pipeline(db: Session = Depends(get_db)):
         "created_ids": created_ids,
         "message": "Starter pipeline loaded.",
     }
+
+
+
+def proposal_scope_for(lead: SalesLead) -> str:
+    interest = lead.service_interest or "technology modernisation and advisory"
+    return (
+        f"1. Discovery and current-state assessment focused on {interest}.\n"
+        "2. Risk, opportunity and priority review covering people, process, systems and data.\n"
+        "3. Recommended target architecture / solution approach and phased delivery roadmap.\n"
+        "4. Implementation of the agreed priority work within the final signed scope.\n"
+        "5. Testing, documentation, handover and appropriate knowledge transfer.\n\n"
+        "Final deliverables, milestones, exclusions and third-party dependencies will be confirmed "
+        "after discovery and before project commencement."
+    )
+
+
+def proposal_summary_for(lead: SalesLead) -> str:
+    contact = f" for {lead.contact_name}" if lead.contact_name else ""
+    return (
+        f"Thueman Coke Limited proposes a focused technology engagement with {lead.organisation}{contact}. "
+        f"The proposed work is centred on {lead.service_interest or 'technology improvement'}, with the aim "
+        "of improving operational effectiveness, resilience, security and measurable business value. "
+        "The engagement will be delivered in practical phases so priorities, risk and budget remain visible throughout."
+    )
+
+
+def proposal_terms_for(lead: SalesLead) -> str:
+    return (
+        f"Indicative professional-services value: {lead.currency} {float(lead.estimated_value or 0):,.2f}.\n"
+        "This is a planning estimate until a final scope and quotation are approved.\n"
+        "Third-party licences, hardware, advertising media spend, travel and supplier charges are excluded unless specifically stated.\n"
+        "Payment milestones will be defined in the final quotation.\n"
+        "No hidden charges: any material scope change or additional cost must be agreed before work proceeds.\n"
+        "Proposal validity: 30 days from issue unless otherwise stated."
+    )
+
+
+@app.post(
+    "/api/crm/leads/{lead_id}/proposal",
+    response_model=ProposalResponse,
+    status_code=201,
+    dependencies=[Depends(require_crm_key)],
+)
+def generate_sales_proposal(lead_id: int, db: Session = Depends(get_db)):
+    lead = db.get(SalesLead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found.")
+
+    existing = (
+        db.query(SalesProposal)
+        .filter(SalesProposal.lead_id == lead_id, SalesProposal.status == "draft")
+        .order_by(SalesProposal.updated_at.desc())
+        .first()
+    )
+    if existing:
+        return existing
+
+    now = datetime.now(timezone.utc)
+    proposal = SalesProposal(
+        lead_id=lead.id,
+        title=f"Technology Services Proposal — {lead.organisation}",
+        executive_summary=proposal_summary_for(lead),
+        scope=proposal_scope_for(lead),
+        commercial_terms=proposal_terms_for(lead),
+        amount=float(lead.estimated_value or 0),
+        currency=(lead.currency or "GBP").upper(),
+        status="draft",
+        valid_until=now + timedelta(days=30),
+    )
+    db.add(proposal)
+    db.commit()
+    db.refresh(proposal)
+    return proposal
+
+
+@app.get(
+    "/api/crm/proposals",
+    response_model=list[ProposalResponse],
+    dependencies=[Depends(require_crm_key)],
+)
+def list_sales_proposals(lead_id: int | None = None, db: Session = Depends(get_db)):
+    query = db.query(SalesProposal)
+    if lead_id is not None:
+        query = query.filter(SalesProposal.lead_id == lead_id)
+    return query.order_by(SalesProposal.updated_at.desc()).all()
+
+
+@app.patch(
+    "/api/crm/proposals/{proposal_id}",
+    response_model=ProposalResponse,
+    dependencies=[Depends(require_crm_key)],
+)
+def update_sales_proposal(proposal_id: int, payload: ProposalUpdate, db: Session = Depends(get_db)):
+    proposal = db.get(SalesProposal, proposal_id)
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found.")
+
+    data = payload.model_dump(exclude_unset=True)
+    if "currency" in data and data["currency"]:
+        data["currency"] = data["currency"].upper()
+
+    for key, value in data.items():
+        setattr(proposal, key, value)
+
+    proposal.updated_at = datetime.now(timezone.utc)
+
+    if data.get("status") == "sent":
+        lead = db.get(SalesLead, proposal.lead_id)
+        if lead:
+            lead.stage = "proposal"
+            lead.probability = STAGE_PROBABILITY["proposal"]
+            lead.next_action = "Follow up on proposal."
+            lead.next_action_at = datetime.now(timezone.utc) + timedelta(days=5)
+            lead.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(proposal)
+    return proposal
