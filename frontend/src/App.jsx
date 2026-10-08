@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -8,6 +8,8 @@ import {
   Mail,
   MapPin,
   Menu,
+  MessageCircle,
+  Phone,
   ServerCog,
   Sparkles,
   X,
@@ -15,6 +17,44 @@ import {
 import { sectors, services, solutionMap } from "./data";
 
 const API_URL = (import.meta.env.VITE_API_URL || "https://api.thuemancokelimited.com").replace(/\/$/, "");
+
+
+function CookieConsent() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const choice = localStorage.getItem("tcl_cookie_consent");
+    if (!choice) setVisible(true);
+
+    const openSettings = () => setVisible(true);
+    window.addEventListener("tcl-open-cookie-settings", openSettings);
+    return () => window.removeEventListener("tcl-open-cookie-settings", openSettings);
+  }, []);
+
+  function choose(value) {
+    localStorage.setItem("tcl_cookie_consent", value);
+    setVisible(false);
+  }
+
+  if (!visible) return null;
+
+  return (
+    <div className="cookie-banner" role="dialog" aria-live="polite" aria-label="Cookie preferences">
+      <div className="cookie-copy">
+        <strong>Your privacy choices</strong>
+        <p>
+          We use essential browser storage to remember your preferences and support core website functions.
+          We will not use optional analytics or marketing cookies unless you accept them. You can accept or
+          decline optional cookies now and change your choice later. Read our <a href="./privacy.html#cookies">privacy and cookie notice</a>.
+        </p>
+      </div>
+      <div className="cookie-actions">
+        <button className="cookie-decline" type="button" onClick={() => choose("declined")}>Decline optional cookies</button>
+        <button className="btn cookie-accept" type="button" onClick={() => choose("accepted")}>Accept cookies</button>
+      </div>
+    </div>
+  );
+}
 
 function Navbar() {
   const [open, setOpen] = useState(false);
@@ -312,6 +352,10 @@ function Contact() {
           <div className="contact-points">
             <span><Globe2 /> UK · Europe · USA · Caribbean</span>
             <span><Mail /> <a href="mailto:tlcoke@hotmail.com">tlcoke@hotmail.com</a></span>
+            <span><Phone /> UK: <a href="tel:+447780388507">07780 388507</a></span>
+            <span><MessageCircle /> UK WhatsApp: <a href="https://wa.me/447780388507" target="_blank" rel="noreferrer">Message us</a></span>
+            <span><Phone /> Jamaica: <a href="tel:+18762914054">+1 876 291 4054</a></span>
+            <span><MessageCircle /> Jamaica WhatsApp: <a href="https://wa.me/18762914054" target="_blank" rel="noreferrer">Message us</a></span>
             <span><MapPin /> Remote and on-site delivery by arrangement</span>
           </div>
         </div>
@@ -368,7 +412,12 @@ function Footer() {
           <a href="#contact">Contact</a>
           <a href="./advertise.html">Advertise with us</a>
           <a href="./privacy.html">Privacy</a>
+          <button className="footer-link-button" type="button" onClick={() => window.dispatchEvent(new Event("tcl-open-cookie-settings"))}>Cookie settings</button>
           <a href="mailto:tlcoke@hotmail.com">Email us</a>
+          <a href="tel:+447780388507">UK: 07780 388507</a>
+          <a href="https://wa.me/447780388507" target="_blank" rel="noreferrer">UK WhatsApp</a>
+          <a href="tel:+18762914054">Jamaica: +1 876 291 4054</a>
+          <a href="https://wa.me/18762914054" target="_blank" rel="noreferrer">Jamaica WhatsApp</a>
         </div>
       </div>
       <div className="container footer-bottom">
@@ -394,6 +443,7 @@ export default function App() {
         <Contact />
       </main>
       <Footer />
+      <CookieConsent />
     </>
   );
 }
