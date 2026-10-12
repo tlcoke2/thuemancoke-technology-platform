@@ -76,7 +76,7 @@ table{width:100%;border-collapse:collapse;min-width:1240px}th,td{text-align:left
 </section>
 
 <section class="panel">
-<div class="toolbar"><h2>Pipeline</h2><div class="actions"><button class="secondary" id="seedBtn">Load starter pipeline</button><button class="secondary" id="exportBtn">Export CSV</button><label>Stage filter<select id="stageFilter"><option value="">All stages</option><option value="new">New Lead</option><option value="contacted">Contacted</option><option value="follow_up">Follow-up</option><option value="meeting">Meeting</option><option value="proposal">Proposal</option><option value="won">Won</option><option value="lost">Lost</option></select></label><button class="secondary" id="refreshBtn">Refresh</button></div></div>
+<div class="toolbar"><h2>Pipeline</h2><div class="actions"><button class="secondary" id="syncBtn" title="Import existing website enquiries without duplicating CRM opportunities">Sync website enquiries</button><button class="secondary" id="seedBtn">Load starter pipeline</button><button class="secondary" id="exportBtn">Export CSV</button><label>Stage filter<select id="stageFilter"><option value="">All stages</option><option value="new">New Lead</option><option value="contacted">Contacted</option><option value="follow_up">Follow-up</option><option value="meeting">Meeting</option><option value="proposal">Proposal</option><option value="won">Won</option><option value="lost">Lost</option></select></label><button class="secondary" id="refreshBtn">Refresh</button></div></div>
 <div class="table-wrap"><table><thead><tr><th>Organisation / Contact</th><th>Stage</th><th>Value</th><th>Probability</th><th>Next action</th><th>Due</th><th>Service / Sector</th><th>Notes</th><th>Actions</th></tr></thead><tbody id="leadRows"></tbody></table></div>
 </section>
 </div>
@@ -105,6 +105,7 @@ let key=sessionStorage.getItem("tcl_crm_key")||"";
 let currentProposal=null;
 let currentProposalLead=null;
 let currentLeads=[];
+let refreshInProgress=false;
 const $=(id)=>document.getElementById(id);
 const esc=(v="")=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 const localDate=(iso)=>{if(!iso)return"";const d=new Date(iso);const pad=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;};
@@ -118,6 +119,8 @@ async function api(path,options={}){
 }
 function moneyMap(obj){const entries=Object.entries(obj||{});return entries.length?entries.map(([c,v])=>`${c} ${Number(v).toLocaleString(undefined,{maximumFractionDigits:0})}`).join(" · "):"—";}
 async function load(){
+  if(refreshInProgress || document.hidden || !key)return;
+  refreshInProgress=true;
   try{
     const filter=$("stageFilter").value;
     const [summary,forecast,leads]=await Promise.all([api("/api/crm/summary"),api("/api/crm/forecast"),api("/api/crm/leads"+(filter?`?stage=${encodeURIComponent(filter)}`:""))]);
@@ -134,6 +137,7 @@ async function load(){
     $("connectionStatus").textContent="Connected";
     msg("");
   }catch(e){msg(e.message,"error");if(e.message.includes("credentials")||e.message.includes("configured")) lock();}
+  finally{refreshInProgress=false;}
 }
 function render(leads){
   $("leadRows").innerHTML=leads.map(l=>`
@@ -237,7 +241,8 @@ $("markAccepted").addEventListener("click",async function(){try{await saveCurren
 $("markRejected").addEventListener("click",async function(){try{await saveCurrentProposal("rejected");$("proposalModal").classList.add("hidden");}catch(e){msg(e.message,"error");}});
 $("printProposal").addEventListener("click",printCurrentProposal);
 $("exportBtn").addEventListener("click",exportCsv);
-$("connectBtn").addEventListener("click",connect);$("logoutBtn").addEventListener("click",lock);$("refreshBtn").addEventListener("click",load);$("stageFilter").addEventListener("change",load);$("seedBtn").addEventListener("click",async()=>{try{const r=await api("/api/crm/seed-starter",{method:"POST"});msg(`${r.created} starter lead(s) added; ${r.skipped} already present.`,"ok");await load();}catch(e){msg(e.message,"error");}});
+$("connectBtn").addEventListener("click",connect);$("logoutBtn").addEventListener("click",lock);$("refreshBtn").addEventListener("click",load);$("stageFilter").addEventListener("change",load);$("syncBtn").addEventListener("click",async()=>{try{const r=await api("/api/crm/sync-enquiries",{method:"POST"});await load();msg(`${r.created} website enquiry opportunity(s) added; ${r.skipped} already present.`, "ok");}catch(e){msg(e.message,"error");}});
+$("seedBtn").addEventListener("click",async()=>{try{const r=await api("/api/crm/seed-starter",{method:"POST"});msg(`${r.created} starter lead(s) added; ${r.skipped} already present.`,"ok");await load();}catch(e){msg(e.message,"error");}});
 $("leadForm").addEventListener("submit",async(e)=>{
  e.preventDefault();const fd=new FormData(e.currentTarget);
  const payload={};
@@ -247,6 +252,8 @@ $("leadForm").addEventListener("submit",async(e)=>{
  ["contact_name","contact_email","contact_phone","website","sector","country","source","service_interest","next_action","notes"].forEach(k=>{if(!payload[k])payload[k]=null;});
  try{await api("/api/crm/leads",{method:"POST",body:JSON.stringify(payload)});e.currentTarget.reset();msg("Lead added to the pipeline.","ok");await load();}catch(err){msg(err.message,"error");}
 });
+setInterval(()=>{if(key && !$("crmApp").classList.contains("hidden"))load();},30000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden && key && !$("crmApp").classList.contains("hidden"))load();});
 if(key){$("adminKey").value=key;connect();}
 </script>
 </body>
