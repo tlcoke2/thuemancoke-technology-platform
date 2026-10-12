@@ -6,7 +6,7 @@ from email.message import EmailMessage
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import func
+from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_db
@@ -28,6 +28,20 @@ from .settings import get_settings
 settings = get_settings()
 logger = logging.getLogger("thueman-coke-api")
 Base.metadata.create_all(bind=engine)
+
+def ensure_crm_columns() -> None:
+    """Small additive migration for deployments created before lead governance."""
+    inspector = inspect(engine)
+    columns = {column["name"] for column in inspector.get_columns("sales_leads")}
+    with engine.begin() as connection:
+        if "classification" not in columns:
+            connection.execute(text("ALTER TABLE sales_leads ADD COLUMN classification VARCHAR(40) DEFAULT 'review'"))
+        if "archived" not in columns:
+            connection.execute(text("ALTER TABLE sales_leads ADD COLUMN archived BOOLEAN DEFAULT FALSE"))
+        connection.execute(text("UPDATE sales_leads SET classification='genuine' WHERE classification IS NULL"))
+        connection.execute(text("UPDATE sales_leads SET archived=FALSE WHERE archived IS NULL"))
+
+ensure_crm_columns()
 
 app = FastAPI(
     title="Thueman Coke Limited API",
@@ -147,6 +161,8 @@ def make_sales_lead_from_contact(lead: ContactLead) -> SalesLead:
         next_action="Review website enquiry and respond to the prospect.",
         next_action_at=datetime.now(timezone.utc) + timedelta(days=1),
         notes=f"Website enquiry #{lead.id}:\\n\\n{lead.message}",
+        classification="review",
+        archived=False,
     )
 
 
@@ -197,10 +213,17 @@ def sync_website_enquiries(db: Session = Depends(get_db)):
 
 
 @app.get("/api/crm/leads", response_model=list[SalesLeadResponse], dependencies=[Depends(require_crm_key)])
-def list_sales_leads(stage: str | None = None, db: Session = Depends(get_db)):
-    query = db.query(SalesLead)
+def list_sales_leads(
+    stage: str | None = None,
+    classification: str | None = None,
+    archived: bool = False,
+    db: Session = Depends(get_db),
+):
+    query = db.query(SalesLead).filter(SalesLead.archived == archived)
     if stage:
         query = query.filter(SalesLead.stage == stage)
+    if classification:
+        query = query.filter(SalesLead.classification == classification)
     return query.order_by(SalesLead.updated_at.desc()).all()
 
 
@@ -265,6 +288,28 @@ def delete_sales_lead(lead_id: int, db: Session = Depends(get_db)):
     db.commit()
     logger.info("CRM opportunity deleted: lead_id=%s proposals=%s", lead_id, len(proposal_ids))
     return {"ok": True, "deleted_id": lead_id, "deleted_proposals": len(proposal_ids)}
+
+
+@app.post("/api/crm/leads/{lead_id}/archive", dependencies=[Depends(require_crm_key)])
+def archive_sales_lead(lead_id: int, db: Session = Depends(get_db)):
+    lead = db.get(SalesLead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found.")
+    lead.archived = True
+    lead.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"ok": True, "id": lead_id, "archived": True}
+
+
+@app.post("/api/crm/leads/{lead_id}/restore", dependencies=[Depends(require_crm_key)])
+def restore_sales_lead(lead_id: int, db: Session = Depends(get_db)):
+    lead = db.get(SalesLead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found.")
+    lead.archived = False
+    lead.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"ok": True, "id": lead_id, "archived": False}
 
 
 @app.get("/api/crm/summary", response_model=PipelineSummary, dependencies=[Depends(require_crm_key)])
