@@ -76,8 +76,8 @@ table{width:100%;border-collapse:collapse;min-width:1240px}th,td{text-align:left
 </section>
 
 <section class="panel">
-<div class="toolbar"><h2>Pipeline</h2><div class="actions"><button class="secondary" id="syncBtn" title="Import existing website enquiries without duplicating CRM opportunities">Sync website enquiries</button><button class="secondary" id="seedBtn">Load starter pipeline</button><button class="secondary" id="exportBtn">Export CSV</button><label>Stage filter<select id="stageFilter"><option value="">All stages</option><option value="new">New Lead</option><option value="contacted">Contacted</option><option value="follow_up">Follow-up</option><option value="meeting">Meeting</option><option value="proposal">Proposal</option><option value="won">Won</option><option value="lost">Lost</option></select></label><button class="secondary" id="refreshBtn">Refresh</button></div></div>
-<div class="table-wrap"><table><thead><tr><th>Organisation / Contact</th><th>Stage</th><th>Value</th><th>Probability</th><th>Next action</th><th>Due</th><th>Service / Sector</th><th>Notes</th><th>Actions</th></tr></thead><tbody id="leadRows"></tbody></table></div>
+<div class="toolbar"><h2>Pipeline</h2><div class="actions"><button class="secondary" id="syncBtn" title="Import existing website enquiries without duplicating CRM opportunities">Sync website enquiries</button><button class="secondary" id="seedBtn">Sync TCL prospects</button><button class="secondary" id="exportBtn">Export CSV</button><label>Stage filter<select id="stageFilter"><option value="">All stages</option><option value="new">New Lead</option><option value="contacted">Contacted</option><option value="follow_up">Follow-up</option><option value="meeting">Meeting</option><option value="proposal">Proposal</option><option value="won">Won</option><option value="lost">Lost</option></select></label><label>Classification<select id="classFilter"><option value="">All classifications</option><option value="genuine">Genuine</option><option value="review">Review</option><option value="junk">Junk</option><option value="malicious">Malicious</option></select></label><label><input type="checkbox" id="archiveFilter"> Archived</label><button class="secondary" id="refreshBtn">Refresh</button></div></div>
+<div class="table-wrap"><table><thead><tr><th>Organisation / Contact</th><th>Stage</th><th>Value</th><th>Probability</th><th>Next action</th><th>Due</th><th>Service / Sector</th><th>Classification</th><th>Notes</th><th>Actions</th></tr></thead><tbody id="leadRows"></tbody></table></div>
 </section>
 </div>
 <div class="modal hidden" id="proposalModal">
@@ -123,7 +123,13 @@ async function load(){
   refreshInProgress=true;
   try{
     const filter=$("stageFilter").value;
-    const [summary,forecast,leads]=await Promise.all([api("/api/crm/summary"),api("/api/crm/forecast"),api("/api/crm/leads"+(filter?`?stage=${encodeURIComponent(filter)}`:""))]);
+    const classification=$("classFilter").value;
+    const archived=$("archiveFilter").checked;
+    const params=new URLSearchParams();
+    if(filter)params.set("stage",filter);
+    if(classification)params.set("classification",classification);
+    if(archived)params.set("archived","true");
+    const [summary,forecast,leads]=await Promise.all([api("/api/crm/summary"),api("/api/crm/forecast"),api("/api/crm/leads"+(params.size?`?${params}`:""))]);
     $("totalLeads").textContent=summary.total_leads;
     $("openValue").textContent=moneyMap(summary.open_pipeline_value);
     $("weightedValue").textContent=moneyMap(forecast.weighted_pipeline_value);
@@ -149,11 +155,13 @@ function render(leads){
     <td><input class="nextAction" value="${esc(l.next_action||"")}" placeholder="Next step"></td>
     <td><input class="nextDate" type="datetime-local" value="${localDate(l.next_action_at)}"></td>
     <td><div>${esc(l.service_interest||"")}</div><div class="muted">${esc(l.sector||"")}</div></td>
+    <td><select class="classification"><option value="genuine" ${l.classification==="genuine"?"selected":""}>Genuine</option><option value="review" ${l.classification==="review"?"selected":""}>Review</option><option value="junk" ${l.classification==="junk"?"selected":""}>Junk</option><option value="malicious" ${l.classification==="malicious"?"selected":""}>Malicious</option></select></td>
     <td><textarea class="notes" rows="2">${esc(l.notes||"")}</textarea></td>
-    <td><div class="actions"><button class="primary saveLead">Save</button><button class="secondary proposalBtn">Proposal</button></div></td>
+    <td><div class="actions"><button class="primary saveLead">Save</button><button class="secondary proposalBtn">Proposal</button><button class="secondary archiveLead">${l.archived?"Restore":"Archive"}</button></div></td>
   </tr>`).join("");
   document.querySelectorAll(".saveLead").forEach(b=>b.addEventListener("click",saveRow));
   document.querySelectorAll(".proposalBtn").forEach(b=>b.addEventListener("click",openProposal));
+  document.querySelectorAll(".archiveLead").forEach(b=>b.addEventListener("click",archiveRow));
 }
 async function openProposal(e){
   const tr=e.target.closest("tr");
@@ -206,11 +214,24 @@ function exportCsv(){
   const a=document.createElement("a");a.href=url;a.download="tcl-sales-pipeline-"+new Date().toISOString().slice(0,10)+".csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 
+async function archiveRow(e){
+  const tr=e.target.closest("tr");
+  const id=tr.dataset.id;
+  const archived=$("archiveFilter").checked;
+  const label=tr.querySelector(".org").textContent.trim();
+  if(!archived && !confirm(`Archive "${label}"? You can restore it later.`))return;
+  try{
+    await api("/api/crm/leads/"+id+"/"+(archived?"restore":"archive"),{method:"POST"});
+    await load();
+    msg(archived?"Opportunity restored.":"Opportunity archived.","ok");
+  }catch(err){msg(err.message,"error");}
+}
 async function saveRow(e){
   const tr=e.target.closest("tr");
   const id=tr.dataset.id;
   const payload={
     stage:tr.querySelector(".stage").value,
+    classification:tr.querySelector(".classification").value,
     estimated_value:Number(tr.querySelector(".value").value||0),
     currency:tr.querySelector(".currency").value,
     probability:Number(tr.querySelector(".probability").value||0),
@@ -241,7 +262,7 @@ $("markAccepted").addEventListener("click",async function(){try{await saveCurren
 $("markRejected").addEventListener("click",async function(){try{await saveCurrentProposal("rejected");$("proposalModal").classList.add("hidden");}catch(e){msg(e.message,"error");}});
 $("printProposal").addEventListener("click",printCurrentProposal);
 $("exportBtn").addEventListener("click",exportCsv);
-$("connectBtn").addEventListener("click",connect);$("logoutBtn").addEventListener("click",lock);$("refreshBtn").addEventListener("click",load);$("stageFilter").addEventListener("change",load);$("syncBtn").addEventListener("click",async()=>{try{const r=await api("/api/crm/sync-enquiries",{method:"POST"});await load();msg(`${r.created} website enquiry opportunity(s) added; ${r.skipped} already present.`, "ok");}catch(e){msg(e.message,"error");}});
+$("connectBtn").addEventListener("click",connect);$("logoutBtn").addEventListener("click",lock);$("refreshBtn").addEventListener("click",load);$("stageFilter").addEventListener("change",load);$("classFilter").addEventListener("change",load);$("archiveFilter").addEventListener("change",load);$("syncBtn").addEventListener("click",async()=>{try{const r=await api("/api/crm/sync-enquiries",{method:"POST"});await load();msg(`${r.created} website enquiry opportunity(s) added; ${r.skipped} already present.`, "ok");}catch(e){msg(e.message,"error");}});
 $("seedBtn").addEventListener("click",async()=>{try{const r=await api("/api/crm/seed-starter",{method:"POST"});msg(`${r.created} starter lead(s) added; ${r.skipped} already present.`,"ok");await load();}catch(e){msg(e.message,"error");}});
 $("leadForm").addEventListener("submit",async(e)=>{
  e.preventDefault();const fd=new FormData(e.currentTarget);
