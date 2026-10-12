@@ -21,6 +21,7 @@ class ContactResponse(BaseModel):
 
 
 SalesStage = Literal["new", "contacted", "follow_up", "meeting", "proposal", "won", "lost"]
+LeadClassification = Literal["genuine", "review", "junk", "malicious"]
 
 
 class SalesLeadCreate(BaseModel):
@@ -41,6 +42,8 @@ class SalesLeadCreate(BaseModel):
     next_action: str | None = Field(default=None, max_length=500)
     next_action_at: datetime | None = None
     notes: str | None = Field(default=None, max_length=10000)
+    classification: LeadClassification = "genuine"
+    archived: bool = False
 
 
 class SalesLeadUpdate(BaseModel):
@@ -61,6 +64,8 @@ class SalesLeadUpdate(BaseModel):
     next_action: str | None = Field(default=None, max_length=500)
     next_action_at: datetime | None = None
     notes: str | None = Field(default=None, max_length=10000)
+    classification: LeadClassification | None = None
+    archived: bool | None = None
 
 
 class SalesLeadResponse(BaseModel):
@@ -84,6 +89,8 @@ class SalesLeadResponse(BaseModel):
     next_action: str | None
     next_action_at: datetime | None
     notes: str | None
+    classification: str
+    archived: bool
     created_at: datetime
     updated_at: datetime
 
