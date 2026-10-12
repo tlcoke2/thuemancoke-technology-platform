@@ -314,7 +314,7 @@ def restore_sales_lead(lead_id: int, db: Session = Depends(get_db)):
 
 @app.get("/api/crm/summary", response_model=PipelineSummary, dependencies=[Depends(require_crm_key)])
 def pipeline_summary(db: Session = Depends(get_db)):
-    leads = db.query(SalesLead).all()
+    leads = db.query(SalesLead).filter(SalesLead.archived.is_(False), SalesLead.classification.notin_(["junk", "malicious"])).all()
     by_stage = {stage: 0 for stage in STAGE_PROBABILITY}
     open_pipeline_value: dict[str, float] = {}
     weighted_pipeline_value: dict[str, float] = {}
@@ -337,6 +337,8 @@ def pipeline_summary(db: Session = Depends(get_db)):
     overdue = (
         db.query(SalesLead)
         .filter(
+            SalesLead.archived.is_(False),
+            SalesLead.classification.notin_(["junk", "malicious"]),
             SalesLead.stage.notin_(["won", "lost"]),
             SalesLead.next_action_at.is_not(None),
             SalesLead.next_action_at < now,
@@ -671,8 +673,9 @@ def update_sales_proposal(proposal_id: int, payload: ProposalUpdate, db: Session
     dependencies=[Depends(require_crm_key)],
 )
 def revenue_forecast(db: Session = Depends(get_db)):
-    leads = db.query(SalesLead).all()
-    proposals = db.query(SalesProposal).all()
+    leads = db.query(SalesLead).filter(SalesLead.archived.is_(False), SalesLead.classification.notin_(["junk", "malicious"])).all()
+    active_ids = [lead.id for lead in leads]
+    proposals = db.query(SalesProposal).filter(SalesProposal.lead_id.in_(active_ids)).all() if active_ids else []
 
     by_stage = {stage: 0 for stage in STAGE_PROBABILITY}
     open_pipeline_value: dict[str, float] = {}
