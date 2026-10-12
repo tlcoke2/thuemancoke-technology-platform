@@ -1,3 +1,4 @@
+import logging
 import secrets
 import smtplib
 from datetime import datetime, timedelta, timezone
@@ -25,6 +26,7 @@ from .schemas import (
 from .settings import get_settings
 
 settings = get_settings()
+logger = logging.getLogger("thueman-coke-api")
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -64,6 +66,7 @@ def send_notification(lead: ContactLead) -> None:
         settings.contact_to_email,
     ]
     if not all(required):
+        logger.warning("Contact email notification skipped: SMTP configuration is incomplete.")
         return
 
     msg = EmailMessage()
@@ -117,7 +120,7 @@ def create_contact(payload: ContactCreate, db: Session = Depends(get_db)):
     try:
         send_notification(lead)
     except Exception:
-        pass
+        logger.exception("Contact email notification failed for enquiry id=%s.", lead.id)
 
     return ContactResponse(
         ok=True,
