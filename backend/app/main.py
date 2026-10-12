@@ -40,7 +40,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "X-Admin-Key"],
 )
 
@@ -241,6 +241,30 @@ def update_sales_lead(lead_id: int, payload: SalesLeadUpdate, db: Session = Depe
     db.commit()
     db.refresh(lead)
     return lead
+
+
+@app.delete("/api/crm/leads/{lead_id}", dependencies=[Depends(require_crm_key)])
+def delete_sales_lead(lead_id: int, db: Session = Depends(get_db)):
+    lead = db.get(SalesLead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found.")
+
+    # Delete dependent proposal history first because the current schema uses
+    # explicit IDs rather than database foreign-key cascades.
+    proposals = db.query(SalesProposal).filter(SalesProposal.lead_id == lead_id).all()
+    proposal_ids = [proposal.id for proposal in proposals]
+    if proposal_ids:
+        db.query(ProposalVersion).filter(ProposalVersion.proposal_id.in_(proposal_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(SalesProposal).filter(SalesProposal.lead_id == lead_id).delete(
+            synchronize_session=False
+        )
+
+    db.delete(lead)
+    db.commit()
+    logger.info("CRM opportunity deleted: lead_id=%s proposals=%s", lead_id, len(proposal_ids))
+    return {"ok": True, "deleted_id": lead_id, "deleted_proposals": len(proposal_ids)}
 
 
 @app.get("/api/crm/summary", response_model=PipelineSummary, dependencies=[Depends(require_crm_key)])
