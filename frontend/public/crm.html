@@ -248,6 +248,8 @@ async function connect(){
   try{
     await api("/api/crm/summary");
     $("loginPanel").classList.add("hidden");$("crmApp").classList.remove("hidden");$("logoutBtn").classList.remove("hidden");
+    // Safe to run on each login: backend only adds missing starter prospects.
+    await api("/api/crm/seed-starter",{method:"POST"});
     await load();
   }catch(e){msg(e.message,"error","loginMsg");sessionStorage.removeItem("tcl_crm_key");key="";}
 }
