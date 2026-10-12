@@ -114,27 +114,12 @@ def create_contact(payload: ContactCreate, db: Session = Depends(get_db)):
         consent=True,
     )
     db.add(lead)
+    db.flush()
+    # Keep enquiry and CRM opportunity atomic: neither record is committed
+    # unless both can be persisted.
+    db.add(make_sales_lead_from_contact(lead))
     db.commit()
     db.refresh(lead)
-
-    # Promote every genuine website enquiry into the protected sales pipeline so
-    # it has an owner-visible next action instead of living only in email.
-    sales_lead = SalesLead(
-        organisation=lead.organisation or lead.name,
-        contact_name=lead.name,
-        contact_email=lead.email,
-        source="Website enquiry",
-        service_interest=lead.service,
-        stage="new",
-        estimated_value=0,
-        currency="GBP",
-        probability=STAGE_PROBABILITY["new"],
-        next_action="Review website enquiry and respond to the prospect.",
-        next_action_at=datetime.now(timezone.utc) + timedelta(days=1),
-        notes=f"Website enquiry #{lead.id}:\n\n{lead.message}",
-    )
-    db.add(sales_lead)
-    db.commit()
 
     try:
         send_notification(lead)
@@ -145,6 +130,23 @@ def create_contact(payload: ContactCreate, db: Session = Depends(get_db)):
         ok=True,
         id=lead.id,
         message="Your enquiry has been received.",
+    )
+
+
+def make_sales_lead_from_contact(lead: ContactLead) -> SalesLead:
+    return SalesLead(
+        organisation=lead.organisation or lead.name,
+        contact_name=lead.name,
+        contact_email=lead.email,
+        source="Website enquiry",
+        service_interest=lead.service,
+        stage="new",
+        estimated_value=0,
+        currency="GBP",
+        probability=10,
+        next_action="Review website enquiry and respond to the prospect.",
+        next_action_at=datetime.now(timezone.utc) + timedelta(days=1),
+        notes=f"Website enquiry #{lead.id}:\\n\\n{lead.message}",
     )
 
 
@@ -164,6 +166,34 @@ def require_crm_key(x_admin_key: str | None = Header(default=None)) -> None:
         raise HTTPException(status_code=503, detail="CRM is not configured.")
     if not x_admin_key or not secrets.compare_digest(x_admin_key, settings.crm_admin_key):
         raise HTTPException(status_code=401, detail="Invalid CRM credentials.")
+
+
+@app.post("/api/crm/sync-enquiries", dependencies=[Depends(require_crm_key)])
+def sync_website_enquiries(db: Session = Depends(get_db)):
+    """Backfill existing website enquiries without duplicating pipeline records."""
+    enquiries = db.query(ContactLead).order_by(ContactLead.id.asc()).all()
+    created = 0
+    skipped = 0
+    for enquiry in enquiries:
+        # Website enquiry ID is a stable source reference. Avoid matching by
+        # email alone: a returning customer may submit distinct enquiries.
+        reference = f"Website enquiry #{enquiry.id}:"
+        existing = (
+            db.query(SalesLead.id)
+            .filter(
+                SalesLead.source == "Website enquiry",
+                SalesLead.notes.like(reference + "%"),
+            )
+            .first()
+        )
+        if existing:
+            skipped += 1
+            continue
+        db.add(make_sales_lead_from_contact(enquiry))
+        created += 1
+    db.commit()
+    logger.info("CRM website enquiry reconciliation: created=%s skipped=%s", created, skipped)
+    return {"ok": True, "created": created, "skipped": skipped, "total_enquiries": len(enquiries)}
 
 
 @app.get("/api/crm/leads", response_model=list[SalesLeadResponse], dependencies=[Depends(require_crm_key)])
