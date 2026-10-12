@@ -117,6 +117,25 @@ def create_contact(payload: ContactCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(lead)
 
+    # Promote every genuine website enquiry into the protected sales pipeline so
+    # it has an owner-visible next action instead of living only in email.
+    sales_lead = SalesLead(
+        organisation=lead.organisation or lead.name,
+        contact_name=lead.name,
+        contact_email=lead.email,
+        source="Website enquiry",
+        service_interest=lead.service,
+        stage="new",
+        estimated_value=0,
+        currency="GBP",
+        probability=STAGE_PROBABILITY["new"],
+        next_action="Review website enquiry and respond to the prospect.",
+        next_action_at=datetime.now(timezone.utc) + timedelta(days=1),
+        notes=f"Website enquiry #{lead.id}:\n\n{lead.message}",
+    )
+    db.add(sales_lead)
+    db.commit()
+
     try:
         send_notification(lead)
     except Exception:
