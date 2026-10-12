@@ -330,9 +330,10 @@ function Contact() {
         throw new Error(errorMessage);
       }
 
+      form.reset();
       setState({
         status: "success",
-        message: "Thank you. Your enquiry has been received.",
+        message: "Thank you. Your enquiry has been received. We will review it and contact you shortly.",
       });
     } catch (error) {
       setState({
