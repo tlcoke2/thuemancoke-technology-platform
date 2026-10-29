@@ -62,3 +62,28 @@ The archive has **not been uploaded or independently inspected** in this TCL rep
 
 ## Follow-up audit
 See `STAGING_AUDIT_20261029.md` for observed production baseline, staging safety fixes and remaining gates. Staging frontend build: set `VITE_SOFTWARE_API_URL` to the isolated HTTPS API origin and run `npm run build -- --mode staging`. No production API fallback is allowed in staging mode.
+
+## Reconciliation with the separate public marketing release
+The feature branch now incorporates main at `0552b94788fa5c3c44630eab3c1d7fac244c48df`.
+`software.html` and its privacy notice retain the live `/api/contact` enquiry flow.
+The future gated intake is `frontend/staging/software-register.html`, emitted as
+`software-register.html` only by `vite build --mode staging`; its candidate privacy
+notice is likewise staging-only. Production builds must contain neither file.
+No automatic cutover is implied by resolving these Git conflicts. The public R2
+preflight and passive availability tools from main are preserved without executing
+uploads. All staging contact, CRM and registration requests use the isolated API.
+
+### Immediate operator evidence needed (read-only)
+From the existing linked TCL repository on the owner's Windows workstation, run:
+```powershell
+railway --version
+railway status
+railway service status --all
+```
+These commands identify the linked project, environment, services and deployment
+state. They do not deploy or export environment-variable values. If not linked,
+stop and identify the TCL project before any deployment. Never paste API tokens,
+SMTP secrets, CRM keys or database connection strings.
+A dated backup entry and isolated restore evidence still require confirmation;
+service status alone is not proof of recoverability. No production database
+command or staging provisioning instruction should be inferred from this check.

@@ -66,11 +66,16 @@ jobs:
       - name: Assert published static page contains no public release URL
         run: |
           test -f dist/software.html
+          test ! -e dist/software-register.html
+          test ! -e dist/privacy-software.html
           ! grep -Ei 'TEC-EPR-Clinic-Edition-1\.0\.0-.*\.tar\.gz|private\.pem' dist/software.html
       - name: Verify staging cannot fall back to production intake
         run: |
           if npm run build -- --mode staging; then exit 1; fi
           if VITE_SOFTWARE_API_URL=https://api.thuemancokelimited.com npm run build -- --mode staging; then exit 1; fi
           VITE_SOFTWARE_API_URL=https://staging-api.example.com npm run build -- --mode staging
+          test -f dist/software-register.html
+          test -f dist/privacy-software.html
+          grep -q '/api/software/interest' dist/software-register.html
           grep -q 'https://staging-api.example.com' dist/software-config.js
           ! grep -R -q 'https://api.thuemancokelimited.com' dist

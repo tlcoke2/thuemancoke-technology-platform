@@ -33,3 +33,16 @@ Scope: PR #30 only. Signed TEC EPR v1.0.0 master, clinical systems, production d
 6. Owner/legal approvals, private R2 custody, OIDC/MFA and commercial lifecycle remain unimplemented. No claims of enterprise launch completion, clinical certification, authenticated download entitlement or payment readiness.
 
 The owner archive hash and independent publisher fingerprint remain those in SOFTWARE_MARKETPLACE_LAUNCH.md. No archive requested, uploaded, rebuilt or signed in this audit.
+
+## Reconciliation follow-up
+- Main advanced to `0552b94788fa5c3c44630eab3c1d7fac244c48df`; Pages deployment
+  `40923216173` succeeded for `4d581f897e0fbe703fc133fef77fd7d89456f834`.
+  Passive smoke `40923687421` succeeded. These were separate work, not this audit.
+- Resolved software-page and privacy-page merge conflicts by preserving main's
+  live contact enquiry flow. Future gated registration and privacy are staging-only
+  build assets, so the existing marketing release test remains applicable.
+- Existing private-R2 scripts and passive checks from main retained unchanged.
+- Browser reset also timed out on follow-up; dashboard state and backups remain
+  unverified. Use the read-only CLI commands in SOFTWARE_MARKETPLACE_LAUNCH.md.
+- Independent review has been requested but no approval is recorded. This is not
+  authorisation to merge, deploy, enable intake, upload a release or charge anyone.

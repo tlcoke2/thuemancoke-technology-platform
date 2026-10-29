@@ -93,7 +93,7 @@
         <div>
           <span class="eyebrow" style="color:#0e7896">Software registration</span>
           <h2>Request a demonstration, evaluation or quotation.</h2>
-          <p class="lead">Register your organisation through the Thueman Coke Limited platform. We will assess your use case, installation needs and clinical responsibilities before granting any software access.</p>
+          <p class="lead">Contact Thueman Coke Limited through our existing secure business enquiry service. We will assess your clinical use case, installation needs and eligibility before granting any software access.</p>
           <div class="card">
             <h3>How access works</h3>
             <ol style="padding-left:20px;line-height:1.95;color:#4d6879">
@@ -121,10 +121,10 @@
             </select>
           </label>
           <label class="check"><input type="checkbox" name="contact_consent" required /><span>I agree that Thueman Coke Limited may process my business contact details to respond to this software request, as explained in the <a href="./privacy.html">privacy notice</a>. *</span></label>
-          <label class="check"><input type="checkbox" name="marketing_opt_in" /><span>Separately, I would like to receive optional software news and marketing communications. I understand I can withdraw this preference.</span></label>
-          <div id="cf-turnstile" aria-label="Abuse prevention verification"></div>
-          <button type="submit" class="button" id="send" disabled>Request access review</button>
-          <p class="form-status" id="status" aria-live="polite" role="status">Checking registration availability…</p>
+          
+
+          <button type="submit" class="button" id="send">Request access review</button>
+          <p class="form-status" id="status" aria-live="polite" role="status">Submit a business enquiry for a TEC EPR demonstration, trial assessment or quotation. No software access or licence is issued automatically.</p>
         </form>
       </div>
     </section>
@@ -134,70 +134,54 @@
   <script src="./software-config.js"></script>
   <script>
   (() => {
-    'use strict';
+    "use strict";
+    const form = document.getElementById("software-interest");
+    const statusBox = document.getElementById("status");
+    const submit = document.getElementById("send");
     const API = window.TCL_SOFTWARE_API;
-    if (!API) { document.getElementById('status').textContent = 'Registration is unavailable.'; return; }
-    const form = document.getElementById('software-interest');
-    const submit = document.getElementById('send');
-    const statusBox = document.getElementById('status');
-    document.getElementById('year').textContent = String(new Date().getFullYear());
-    let config = null;
-    let widgetId = null;
-    let turnstileReady = false;
-    const show = (message, state = '') => { statusBox.textContent = message; statusBox.className = 'form-status ' + state; };
-    const renderWidget = () => {
-      if (!config || !config.acceptingRequests || !config.turnstileSiteKey || !turnstileReady || widgetId !== null) return;
-      widgetId = window.turnstile.render('#cf-turnstile', { sitekey: config.turnstileSiteKey, action: 'software_interest' });
-    };
-    window.addEventListener('tcl-turnstile-ready', () => { turnstileReady = !!window.turnstile; renderWidget(); });
-    fetch(API + '/api/software/registration-config', { headers: { 'Accept':'application/json' }, cache:'no-store', signal:AbortSignal.timeout(10000) })
-      .then(async response => { if (!response.ok) throw Error(); return response.json(); })
-      .then(data => {
-        config = data;
-        if (!data.acceptingRequests) { show('Online registration is not currently open. Please contact TCL for an enquiry.', 'error'); return; }
-        renderWidget();
-        submit.disabled = false;
-        show('Registration is available. Submitting this form does not issue a licence or activate a trial.');
-      })
-      .catch(() => show('Registration cannot be reached. Please contact TCL directly.', 'error'));
-    form.addEventListener('submit', async event => {
+    if (!API) { statusBox.textContent = "Enquiry configuration unavailable."; submit.disabled = true; return; }
+    document.getElementById("year").textContent = String(new Date().getFullYear());
+    function show(message, state = "") {
+      statusBox.textContent = message;
+      statusBox.className = "form-status " + state;
+    }
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (!form.reportValidity() || !config || !config.acceptingRequests) return;
-      const fields = new FormData(form);
-      const token = config.turnstileSiteKey && widgetId !== null && window.turnstile
-        ? window.turnstile.getResponse(widgetId) : '';
-      if (config.turnstileSiteKey && !token) { show('Please complete the security verification.', 'error'); return; }
+      if (!form.reportValidity()) return;
+      const f = new FormData(form);
+      const request = String(f.get("request_type") || "demo");
+      const name = String(f.get("full_name") || "").trim();
+      const email = String(f.get("business_email") || "").trim();
+      const organisation = String(f.get("organisation") || "").trim();
+      const country = String(f.get("country") || "").trim();
+      const message = "TEC EPR Clinic Edition: " + request + " enquiry. Country: " + country + ". This is a business software interest request only; it does not authorise a licence or clinical evaluation. Please contact the applicant to agree a controlled demonstration, trial or quotation.";
       const payload = {
-        product_id:'tec-epr-clinic-edition',
-        request_type:String(fields.get('request_type') || ''),
-        full_name:String(fields.get('full_name') || '').trim(),
-        business_email:String(fields.get('business_email') || '').trim(),
-        organisation:String(fields.get('organisation') || '').trim(),
-        country:String(fields.get('country') || '').trim(),
-        contact_consent:fields.get('contact_consent') === 'on',
-        marketing_opt_in:fields.get('marketing_opt_in') === 'on',
-        website:String(fields.get('website') || ''),
-        turnstile_token:token
+        name, email, organisation, service: "Healthcare Technology — TEC EPR Clinic Edition",
+        message, consent: f.get("contact_consent") === "on",
+        website: String(f.get("website") || "")
       };
       submit.disabled = true;
-      show('Submitting your registration…');
+      show("Submitting your request…");
       try {
-        const response = await fetch(API + '/api/software/interest', {
-          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload), cache:'no-store', signal:AbortSignal.timeout(15000)
+        const response = await fetch(API + "/api/contact", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
         });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw Error(typeof data.detail === 'string' ? data.detail : 'Registration was not completed.');
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const reason = typeof result.detail === "string" ? result.detail : "Enquiry service unavailable. Contact TCL directly using the website details.";
+          throw Error(reason);
+        }
         form.reset();
-        show(data.message + (data.reference ? ' Reference: ' + data.reference : ''), 'success');
+        show("Thank you. Your TEC EPR enquiry has been received for review. You will be contacted about eligibility and the next steps. No trial or licence has been issued.", "success");
       } catch (error) {
-        show(error.message || 'Registration was not completed.', 'error');
+        show(error.message || "Unable to submit request.", "error");
       } finally {
-        if (widgetId !== null && window.turnstile) window.turnstile.reset(widgetId);
-        submit.disabled = !config || !config.acceptingRequests;
+        submit.disabled = false;
       }
     });
   })();
   </script>
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer onload="window.dispatchEvent(new Event('tcl-turnstile-ready'))"></script>
 </body>
 </html>

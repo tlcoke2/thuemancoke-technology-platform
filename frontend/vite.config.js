@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv } from "vite";
+import { readFileSync } from "node:fs";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ mode }) => {
@@ -18,6 +19,12 @@ export default defineConfig(({ mode }) => {
   plugins: [react(), {
     name: 'software-api-config',
     generateBundle() {
+      if (mode === 'staging') {
+        for (const name of ['software-register.html', 'privacy-software.html']) {
+          this.emitFile({ type: 'asset', fileName: name,
+            source: readFileSync(new URL('./staging/' + name, import.meta.url), 'utf8') });
+        }
+      }
       this.emitFile({ type: 'asset', fileName: 'software-config.js',
         source: `window.TCL_SOFTWARE_API = ${JSON.stringify(api.origin)};\n` });
     },
