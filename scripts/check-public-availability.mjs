@@ -4,7 +4,7 @@
  * Only performs HTTP GET against public URLs; never submits forms or changes databases.
  */
 'use strict';
-const assert = require('node:assert/strict');
+import assert from 'node:assert/strict';
 
 const checks = [
   {
