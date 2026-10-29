@@ -62,6 +62,7 @@ class SoftwareStoreSettings(BaseSettings):
     software_leads_enabled: bool = False
     software_turnstile_site_key: str = ""
     software_turnstile_secret_key: str = ""
+    software_turnstile_allowed_hosts: str = "thuemancokelimited.com,www.thuemancokelimited.com"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -121,7 +122,7 @@ def intake_ready(config: SoftwareStoreSettings) -> bool:
     return True
 
 
-def verify_turnstile(token: str, secret: str) -> bool:
+def verify_turnstile(token: str, secret: str, allowed_hosts: str) -> bool:
     if not token or not secret:
         return False
     payload = urllib.parse.urlencode({"secret": secret, "response": token}).encode("utf-8")
@@ -134,7 +135,13 @@ def verify_turnstile(token: str, secret: str) -> bool:
     try:
         with urllib.request.urlopen(request, timeout=5) as response:
             result = json.load(response)
-        return result.get("success") is True
+        host = str(result.get("hostname") or "").casefold()
+        accepted_hosts = {name.strip().casefold() for name in allowed_hosts.split(",") if name.strip()}
+        return (
+            result.get("success") is True
+            and host in accepted_hosts
+            and result.get("action") == "software_interest"
+        )
     except (TimeoutError, ValueError, urllib.error.URLError, OSError):
         logger.warning("Software interest CAPTCHA validation unavailable")
         return False
@@ -166,7 +173,11 @@ def create_software_interest(
         # Do not store honeypot contents or submit them to CRM.
         return SoftwareInterestReceipt(accepted=True, message="Request received for review.")
     if config.app_env == "production":
-        if not verify_turnstile(form.turnstile_token, config.software_turnstile_secret_key):
+        if not verify_turnstile(
+            form.turnstile_token,
+            config.software_turnstile_secret_key,
+            config.software_turnstile_allowed_hosts,
+        ):
             raise HTTPException(status_code=400, detail="Verification was unsuccessful. Please retry.")
     reference = str(uuid.uuid4())
     record = SoftwareInterest(
