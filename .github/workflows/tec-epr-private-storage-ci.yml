@@ -41,3 +41,4 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if ($blockedStatus -eq 0) { throw 'Unexpectedly accepted a wrong release archive' }
           Write-Host 'PASS: source check blocks tampered/incorrect distributions without contacting R2.'
+          exit 0
