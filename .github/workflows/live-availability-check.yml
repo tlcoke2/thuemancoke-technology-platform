@@ -1,0 +1,27 @@
+name: TCL production website passive smoke
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/check-public-availability.mjs'
+      - '.github/workflows/live-availability-check.yml'
+  workflow_run:
+    workflows: ["Deploy frontend to GitHub Pages"]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  passive-smoke:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only external HTTPS smoke check (no form POSTs)
+        run: node scripts/check-public-availability.mjs
