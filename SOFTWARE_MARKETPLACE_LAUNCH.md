@@ -25,7 +25,7 @@ The archive has **not been uploaded or independently inspected** in this TCL rep
 ## This branch — first verified development scope
 - Public TEC EPR product profile with truthful feature limits, no unverified certification/AI/interop claims.
 - Demo / controlled trial review / quotation requests with distinct marketing consent, privacy notice, honeypot and Cloudflare Turnstile validation.
-- Production intake defaults to **OFF**. Activate only after data-protection/commercial signoff, WAF and source-level tests. If `APP_ENV=production`, **both** the Turnstile site key and secret must be set before the service accepts requests.
+- Production intake defaults to **OFF**. Activate only after data-protection/commercial signoff, WAF and source-level tests. In every environment, **both** the Turnstile site key and secret plus allowed hosts must be configured before the service accepts requests.
 - New `software_interest_requests` SQLAlchemy table, created with existing startup `Base.metadata.create_all` (additive table only; does **not** modify existing patient, sales or CRM rows). **Plan an Alembic-managed, reviewed migration for later expansion**—do not use automatic schema changes for complex upgrades.
 - CRM classified as `review`, zero estimated value, explicit human follow-up. Website neither sends automated marketing nor grants software.
 
@@ -59,3 +59,6 @@ The archive has **not been uploaded or independently inspected** in this TCL rep
 - No advertising a trial as self-service or instantly downloadable until the customer account/download and offline licence approval controls exist.
 - Customer-controlled clinical data and administrative commercial contacts are separate legal/privacy purposes.
 - Enabling software intake is a distinct operational act; it is intentionally disabled by default in Railway.
+
+## Follow-up audit
+See `STAGING_AUDIT_20261029.md` for observed production baseline, staging safety fixes and remaining gates. Staging frontend build: set `VITE_SOFTWARE_API_URL` to the isolated HTTPS API origin and run `npm run build -- --mode staging`. No production API fallback is allowed in staging mode.

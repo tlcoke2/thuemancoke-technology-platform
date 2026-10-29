@@ -117,9 +117,9 @@ class SoftwareInterestReceipt(BaseModel):
 def intake_ready(config: SoftwareStoreSettings) -> bool:
     if not config.software_leads_enabled:
         return False
-    if config.app_env == "production":
-        return bool(config.software_turnstile_site_key and config.software_turnstile_secret_key)
-    return True
+    return bool(config.software_turnstile_site_key.strip()
+                and config.software_turnstile_secret_key.strip()
+                and config.software_turnstile_allowed_hosts.strip())
 
 
 def verify_turnstile(token: str, secret: str, allowed_hosts: str) -> bool:
@@ -135,6 +135,8 @@ def verify_turnstile(token: str, secret: str, allowed_hosts: str) -> bool:
     try:
         with urllib.request.urlopen(request, timeout=5) as response:
             result = json.load(response)
+        if not isinstance(result, dict):
+            return False
         host = str(result.get("hostname") or "").casefold()
         accepted_hosts = {name.strip().casefold() for name in allowed_hosts.split(",") if name.strip()}
         return (
@@ -172,13 +174,12 @@ def create_software_interest(
     if form.website:
         # Do not store honeypot contents or submit them to CRM.
         return SoftwareInterestReceipt(accepted=True, message="Request received for review.")
-    if config.app_env == "production":
-        if not verify_turnstile(
-            form.turnstile_token,
-            config.software_turnstile_secret_key,
-            config.software_turnstile_allowed_hosts,
-        ):
-            raise HTTPException(status_code=400, detail="Verification was unsuccessful. Please retry.")
+    if not verify_turnstile(
+        form.turnstile_token,
+        config.software_turnstile_secret_key,
+        config.software_turnstile_allowed_hosts,
+    ):
+        raise HTTPException(status_code=400, detail="Verification was unsuccessful. Please retry.")
     reference = str(uuid.uuid4())
     record = SoftwareInterest(
         id=reference,
@@ -215,7 +216,7 @@ def create_software_interest(
         db.commit()
     except Exception:
         db.rollback()
-        logger.exception("Software registration database transaction failed")
+        logger.error("Software registration database transaction failed")
         raise HTTPException(status_code=503, detail="Unable to save registration. Try again later.")
     return SoftwareInterestReceipt(
         accepted=True,
