@@ -22,7 +22,7 @@ FORM = {
     "product_id": "tec-epr-clinic-edition",
     "request_type": "trial",
     "full_name": "Test Clinic Administrator",
-    "business_email": "clinic@example.invalid",
+    "business_email": "clinic@example.com",
     "organisation": "Synthetic Clinic Limited",
     "country": "Jamaica",
     "contact_consent": True,
