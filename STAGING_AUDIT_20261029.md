@@ -22,7 +22,7 @@ Scope: PR #30 only. Signed TEC EPR v1.0.0 master, clinical systems, production d
 - Malformed CAPTCHA responses fail closed; database failure logs omit SQL exception details that could expose applicant contact data.
 - Isolated PostgreSQL CI added alongside SQLite. Test harness rejects non-loopback or non-test database targets and never inherits production DATABASE_URL.
 - Added tests for transaction rollback and recovery, missing keys across environments, malformed email/unknown fields and provider timeout.
-- Software form API origin is generated at build time from VITE_SOFTWARE_API_URL. Staging build refuses missing origin or the production API; only HTTPS origins without credentials/path/query are accepted. Both browser requests have bounded timeouts.
+- Software form API origin is generated at build time from VITE_SOFTWARE_API_URL. Staging build refuses missing origin or the production API; only HTTPS origins without credentials/path/query are accepted. Both browser requests have bounded timeouts. Staging also binds the existing contact form and CRM page to the isolated API; CI rejects production API references anywhere in staging assets.
 
 ## Remaining gates before staging/production
 1. Inspect exact Railway TCL service source, build root, deployment SHA and environment names read-only. Verify dated PostgreSQL backup and isolated restore evidence. No production migration authorised by this audit.

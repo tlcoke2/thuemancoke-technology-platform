@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => {
     throw new Error('Staging must not use production software intake');
   }
   return {
+  // Isolate the existing contact form as well as software/CRM pages in staging.
+  define: mode === 'staging' ? { 'import.meta.env.VITE_API_URL': JSON.stringify(api.origin) } : {},
   plugins: [react(), {
     name: 'software-api-config',
     generateBundle() {

@@ -98,8 +98,10 @@ table{width:100%;border-collapse:collapse;min-width:1240px}th,td{text-align:left
 </div>
 </main>
 
+<script src="./software-config.js"></script>
 <script>
-const API="https://api.thuemancokelimited.com";
+const API=window.TCL_SOFTWARE_API;
+if (!API) throw new Error("CRM API configuration unavailable");
 const stages={new:"New Lead",contacted:"Contacted",follow_up:"Follow-up",meeting:"Meeting",proposal:"Proposal",won:"Won",lost:"Lost"};
 let key=sessionStorage.getItem("tcl_crm_key")||"";
 let currentProposal=null;

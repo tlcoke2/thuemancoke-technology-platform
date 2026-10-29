@@ -73,4 +73,4 @@ jobs:
           if VITE_SOFTWARE_API_URL=https://api.thuemancokelimited.com npm run build -- --mode staging; then exit 1; fi
           VITE_SOFTWARE_API_URL=https://staging-api.example.com npm run build -- --mode staging
           grep -q 'https://staging-api.example.com' dist/software-config.js
-          ! grep -q 'https://api.thuemancokelimited.com' dist/software-config.js
+          ! grep -R -q 'https://api.thuemancokelimited.com' dist
