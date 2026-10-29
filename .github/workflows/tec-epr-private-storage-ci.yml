@@ -1,0 +1,39 @@
+name: TEC EPR private R2 upload guard
+on:
+  push:
+    branches: [ops/r2-private-epr-distribution-20261029]
+    paths:
+      - 'scripts/Publish-TEC-EPR-Private-R2.ps1'
+      - '.github/workflows/tec-epr-private-storage-ci.yml'
+  pull_request:
+    paths:
+      - 'scripts/Publish-TEC-EPR-Private-R2.ps1'
+      - '.github/workflows/tec-epr-private-storage-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  negative-security-check:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell parsing and no-key upload checks
+        run: |
+          $path = (Resolve-Path 'scripts/Publish-TEC-EPR-Private-R2.ps1').Path
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw 'PowerShell parser failed'
+          }
+          # There is no original signed master, R2 bucket or secret in CI.
+          $fake = Join-Path $env:RUNNER_TEMP 'not-real-TEC-EPR.tar.gz'
+          Set-Content -LiteralPath $fake -Value 'synthetic'
+          & pwsh -NoProfile -NonInteractive -File $path -SourceArchive $fake -VerifiedReleaseDirectory $env:RUNNER_TEMP -TrustedPublisherPublicKey $fake -VerifierScript $fake
+          if ($LASTEXITCODE -eq 0) { throw 'Unexpectedly accepted a wrong release archive' }
+          Write-Host 'PASS: source check blocks tampered/incorrect distributions without contacting R2.'
