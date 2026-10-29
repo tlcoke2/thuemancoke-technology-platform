@@ -1,0 +1,48 @@
+name: TEC EPR public marketing release verification
+on:
+  push:
+    branches: [release/tec-epr-marketing-safe-20261029]
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/tec-epr-marketing-release.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Reproducible install
+        run: npm ci
+      - name: Build static website
+        run: npm run build
+      - name: Verify safe standalone marketing distribution
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          const assert = require('node:assert/strict');
+          const html = fs.readFileSync('dist/software.html','utf8');
+          const matches = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+          assert.equal(matches.length,1,'Only expected inline client script');
+          new vm.Script(matches[0][1]);
+          assert.match(html,/TEC EPR Clinic Edition/);
+          assert.match(html,/api\/contact/);
+          assert.match(html,/contact_consent/);
+          assert.match(html,/website/); // existing anti-spam field
+          assert.doesNotMatch(html,/(private\.pem|\.tar\.gz|customer_signed_license|\/api\/software\/interest|checkout\.stripe\.com)/i);
+          assert.doesNotMatch(html,/medical device certified|guaranteed HIPAA compliant/i);
+          assert(fs.existsSync('dist/privacy.html'));
+          console.log('PASS: static marketing product page, consented existing CRM form, no installer or licence secrets.');
+          NODE
