@@ -60,6 +60,7 @@ function Navbar() {
   const [open, setOpen] = useState(false);
   const links = [
     ["Services", "#services"],
+    ["Enterprise Software", "./software.html"],
     ["Expertise", "#expertise"],
     ["About", "#about"],
     ["Approach", "#approach"],
@@ -102,7 +103,7 @@ function Hero() {
           </p>
           <div className="hero-actions">
             <a className="btn" href="#contact">Discuss your project <ArrowRight size={18} /></a>
-            <a className="btn btn-ghost" href="#services">Explore solutions</a>
+            <a className="btn btn-ghost" href="./software.html">Explore enterprise software</a>
           </div>
           <div className="proof-row">
             <div><strong>35+</strong><span>Years global IT experience</span></div>
@@ -412,6 +413,7 @@ function Footer() {
           <a href="#approach">Approach</a>
           <a href="#contact">Contact</a>
           <a href="./advertise.html">Advertise with us</a>
+          <a href="./software.html">Enterprise software & TEC EPR</a>
           <a href="./privacy.html">Privacy</a>
           <button className="footer-link-button" type="button" onClick={() => window.dispatchEvent(new Event("tcl-open-cookie-settings"))}>Cookie settings</button>
           <a href="mailto:tlcoke@hotmail.com">Email us</a>
