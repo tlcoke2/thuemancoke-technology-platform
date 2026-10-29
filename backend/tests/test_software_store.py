@@ -1,5 +1,7 @@
 """Synthetic-only verification of TCL software-store registration and privacy gates."""
 import os
+import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,7 +17,7 @@ from app.main import app
 from app.db import SessionLocal
 from app.models import SalesLead
 from app.software_store import (
-    SoftwareInterest, SoftwareStoreSettings, get_store_settings,
+    SoftwareInterest, SoftwareStoreSettings, get_store_settings, verify_turnstile,
 )
 
 FORM = {
@@ -60,6 +62,18 @@ class SoftwareStoreTests(unittest.TestCase):
                 db.query(SoftwareInterest).count(),
                 db.query(SalesLead).filter(SalesLead.source == "TCL software store").count(),
             )
+
+    def test_turnstile_requires_verified_hostname_and_action(self):
+        class StubResponse(io.BytesIO):
+            pass
+        for claim, expected in [
+            ({"success": True, "hostname": "www.thuemancokelimited.com", "action": "software_interest"}, True),
+            ({"success": True, "hostname": "attacker.example.com", "action": "software_interest"}, False),
+            ({"success": True, "hostname": "www.thuemancokelimited.com", "action": "login"}, False),
+            ({"success": False, "hostname": "www.thuemancokelimited.com", "action": "software_interest"}, False),
+        ]:
+            with patch("app.software_store.urllib.request.urlopen", return_value=StubResponse(json.dumps(claim).encode())):
+                self.assertIs(verify_turnstile("token", "secret", "thuemancokelimited.com,www.thuemancokelimited.com"), expected)
 
     def test_catalog_has_no_public_download_link(self):
         response = self.client.get("/api/software/catalog")
