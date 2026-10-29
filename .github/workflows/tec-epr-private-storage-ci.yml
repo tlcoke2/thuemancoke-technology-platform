@@ -34,6 +34,10 @@ jobs:
           # There is no original signed master, R2 bucket or secret in CI.
           $fake = Join-Path $env:RUNNER_TEMP 'not-real-TEC-EPR.tar.gz'
           Set-Content -LiteralPath $fake -Value 'synthetic'
-          & pwsh -NoProfile -NonInteractive -File $path -SourceArchive $fake -VerifiedReleaseDirectory $env:RUNNER_TEMP -TrustedPublisherPublicKey $fake -VerifierScript $fake
-          if ($LASTEXITCODE -eq 0) { throw 'Unexpectedly accepted a wrong release archive' }
+          $PSNativeCommandUseErrorActionPreference = $false
+          $ErrorActionPreference = 'Continue'
+          & pwsh -NoProfile -NonInteractive -File $path -SourceArchive $fake -VerifiedReleaseDirectory $env:RUNNER_TEMP -TrustedPublisherPublicKey $fake -VerifierScript $fake 2>&1 | Out-Host
+          $blockedStatus = $LASTEXITCODE
+          $ErrorActionPreference = 'Stop'
+          if ($blockedStatus -eq 0) { throw 'Unexpectedly accepted a wrong release archive' }
           Write-Host 'PASS: source check blocks tampered/incorrect distributions without contacting R2.'
