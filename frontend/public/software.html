@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="Discover TEC EPR Clinic Edition, a controlled-deployment electronic patient records and clinic operations platform. Request a demonstration, trial review or quotation through Thueman Coke Limited." />
   <meta name="theme-color" content="#071827" />
-  <link rel="canonical" href="https://www.thuemancokelimited.com/software.html" />
+  <link rel="canonical" href="https://thuemancokelimited.com/software.html" />
   <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="./cookie-consent.css" />
   <title>Enterprise Software & TEC EPR | Thueman Coke Limited</title>
@@ -145,7 +145,7 @@
     const show = (message, state = '') => { statusBox.textContent = message; statusBox.className = 'form-status ' + state; };
     const renderWidget = () => {
       if (!config || !config.acceptingRequests || !config.turnstileSiteKey || !turnstileReady || widgetId !== null) return;
-      widgetId = window.turnstile.render('#cf-turnstile', { sitekey: config.turnstileSiteKey });
+      widgetId = window.turnstile.render('#cf-turnstile', { sitekey: config.turnstileSiteKey, action: 'software_interest' });
     };
     window.addEventListener('tcl-turnstile-ready', () => { turnstileReady = !!window.turnstile; renderWidget(); });
     fetch(API + '/api/software/registration-config', { headers: { 'Accept':'application/json' }, cache:'no-store' })
