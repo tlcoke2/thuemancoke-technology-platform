@@ -24,6 +24,7 @@ from .schemas import (
     SalesLeadUpdate,
 )
 from .settings import get_settings
+from .software_store import router as software_store_router
 
 settings = get_settings()
 logger = logging.getLogger("thueman-coke-api")
@@ -57,6 +58,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "X-Admin-Key"],
 )
+
+app.include_router(software_store_router)
 
 @app.get("/")
 def root():

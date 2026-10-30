@@ -131,13 +131,15 @@
   </main>
   <footer><div class="wrap"><span>© <span id="year"></span> Thueman Coke Limited · TEC EPR enquiries</span><span><a href="./privacy.html">Privacy</a> · <a href="./">Home</a> · <a href="mailto:tlcoke@hotmail.com">Contact</a></span></div></footer>
   <script src="./cookie-consent.js" defer></script>
+  <script src="./software-config.js"></script>
   <script>
   (() => {
     "use strict";
     const form = document.getElementById("software-interest");
     const statusBox = document.getElementById("status");
     const submit = document.getElementById("send");
-    const API = "https://api.thuemancokelimited.com";
+    const API = window.TCL_SOFTWARE_API;
+    if (!API) { statusBox.textContent = "Enquiry configuration unavailable."; submit.disabled = true; return; }
     document.getElementById("year").textContent = String(new Date().getFullYear());
     function show(message, state = "") {
       statusBox.textContent = message;
