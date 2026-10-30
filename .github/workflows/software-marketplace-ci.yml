@@ -16,10 +16,16 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        database: [sqlite, postgres]
+        include:
+          - database: sqlite
+            postgres_image: postgres:16-bookworm
+          - database: postgres16
+            postgres_image: postgres:16-bookworm
+          - database: postgres18
+            postgres_image: postgres:18
     services:
       postgres:
-        image: postgres:16-bookworm
+        image: ${{ matrix.postgres_image }}
         env:
           POSTGRES_USER: tcl_test
           POSTGRES_PASSWORD: synthetic-ci-only
@@ -29,7 +35,7 @@ jobs:
           --health-cmd "pg_isready -U tcl_test -d tcl_store_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      TCL_TEST_POSTGRES_URL: ${{ matrix.database == 'postgres' && 'postgresql+psycopg://tcl_test:synthetic-ci-only@127.0.0.1:5432/tcl_store_test' || '' }}
+      TCL_TEST_POSTGRES_URL: ${{ matrix.database != 'sqlite' && 'postgresql+psycopg://tcl_test:synthetic-ci-only@127.0.0.1:5432/tcl_store_test' || '' }}
     defaults:
       run:
         working-directory: backend
