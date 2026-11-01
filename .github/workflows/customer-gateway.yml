@@ -21,7 +21,7 @@ jobs:
           POSTGRES_DB: gateway_test
         ports: ['5432:5432']
         options: >-
-          --health-cmd 'pg_isready -U gateway_test -d gateway_test'
+          --health-cmd "pg_isready -U gateway_test -d gateway_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       GATEWAY_TEST_POSTGRES_URL: ${{ matrix.database == 'postgres18' && 'postgresql+psycopg://gateway_test:synthetic-ci-only@127.0.0.1:5432/gateway_test' || '' }}
