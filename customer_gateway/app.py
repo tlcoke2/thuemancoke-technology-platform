@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import html
 import os
 import secrets
 import time
@@ -43,6 +44,7 @@ class Config:
     client_id: str
     api_key: str
     enabled: bool = False
+    mfa_enabled: bool = False
 
     def __post_init__(self):
         u = urlsplit(self.origin)
@@ -66,8 +68,13 @@ class WorkOS:
             return response.json()
 
 
-def create_app(config, engine, provider=None, clock=time.time):
+def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None):
     provider = provider or WorkOS(config)
+    try:
+        from .mfa import StepUp, WorkOSMFA, MFAError, elevations, metadata as access_metadata
+    except ImportError:
+        from mfa import StepUp, WorkOSMFA, MFAError, elevations, metadata as access_metadata
+    step_up = StepUp(engine, sessions, audit, mfa_provider or WorkOSMFA(config.api_key), clock)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
     @app.middleware("http")
@@ -78,7 +85,7 @@ def create_app(config, engine, provider=None, clock=time.time):
         response = await call_next(request)
         # HTML form POSTs under no-referrer can send Origin: null. Only the
         # account page needs same-origin; keep callback codes fully suppressed.
-        policy = "same-origin" if request.url.path == "/account" else "no-referrer"
+        policy = "same-origin" if request.url.path in ("/account", "/auth/mfa") else "no-referrer"
         response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
@@ -108,12 +115,15 @@ def create_app(config, engine, provider=None, clock=time.time):
     @app.get("/health")
     def health():
         return {"ok": True, "environment": "staging", "service": "tcl-customer-gateway",
-                "downloadsEnabled": False}
+                "downloadsEnabled": False, "mfaStepUpEnabled": config.mfa_enabled}
 
     @app.get("/ready")
     def ready():
         with engine.connect() as c:
             c.execute(select(sessions.c.token_hash).limit(1))
+            if config.mfa_enabled:
+                for table in access_metadata.sorted_tables:
+                    c.execute(select(table).limit(0))
         return {"ready": True}
 
     @app.get("/", response_class=HTMLResponse)
@@ -160,6 +170,8 @@ def create_app(config, engine, provider=None, clock=time.time):
             data = provider.exchange(code, flow.verifier)
             user = data.get("user", {})
             subject = user.get("id")
+            if data.get("impersonator") or data.get("authentication_method") == "Impersonation":
+                raise ValueError("Impersonated identities are not supported")
             if user.get("email_verified") is not True or not isinstance(subject, str) or not subject.startswith("user_") or len(subject) > 160:
                 raise ValueError("Unverified identity")
         except Exception:
@@ -180,11 +192,76 @@ def create_app(config, engine, provider=None, clock=time.time):
     @app.get("/account", response_class=HTMLResponse)
     def account(request: Request):
         row = current(request)
-        # No identity data is interpolated into HTML. CSRF is server-generated URL-safe text.
+        mfa_html = ""
+        if config.mfa_enabled:
+            with engine.connect() as c:
+                elevation = c.execute(select(elevations.c.expires).where(
+                    elevations.c.session_hash == row['token_hash'],
+                    elevations.c.subject == row['subject'],
+                    elevations.c.expires > int(clock()))).first()
+            mfa_html = ("<p>Additional verification: " + ("verified for this session" if elevation else "required")
+                + "</p><p>Account ID: <code>" + html.escape(row['subject']) + "</code></p>"
+                + "<form action='/auth/mfa/start' method='post'><input type='hidden' name='csrf' value='"
+                + row['csrf'] + "'><button>Verify authenticator</button></form>")
         return ("<h1>Sign-in successful</h1><p>Your email is verified. Customer access awaits approval.</p>"
                 "<p>No download, administrator privilege or licence has been granted.</p>"
-                "<form action='/auth/logout' method='post'><input type='hidden' name='csrf' value='"
+                + mfa_html + "<form action='/auth/logout' method='post'><input type='hidden' name='csrf' value='"
                 +row["csrf"]+"'><button>Sign out of this gateway</button></form>")
+
+    async def protected_form(request, row):
+        if request.headers.get("origin") != config.origin:
+            raise HTTPException(403, "Origin rejected")
+        if request.headers.get("content-type", "").split(";")[0] != "application/x-www-form-urlencoded":
+            raise HTTPException(415, "Form required")
+        body = bytearray()
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > 512:
+                raise HTTPException(413, "Form too large")
+        from urllib.parse import parse_qs
+        fields = parse_qs(body.decode("utf-8", errors="replace"))
+        if any(len(values) != 1 for values in fields.values()):
+            raise HTTPException(400, "Duplicate form fields")
+        if not secrets.compare_digest(fields.get("csrf", [""])[0], row["csrf"]):
+            raise HTTPException(403, "CSRF check failed")
+        return fields
+
+    def mfa_ready():
+        if not config.mfa_enabled:
+            raise HTTPException(503, "Additional verification is disabled")
+
+    @app.post("/auth/mfa/start")
+    async def mfa_start(request: Request):
+        row = current(request)
+        mfa_ready()
+        await protected_form(request, row)
+        try:
+            step_up.begin(row["token_hash"])
+        except MFAError as error:
+            raise HTTPException(400, str(error)) from None
+        return RedirectResponse("/auth/mfa", 303)
+
+    @app.get("/auth/mfa", response_class=HTMLResponse)
+    def mfa_page(request: Request):
+        row = current(request)
+        mfa_ready()
+        return ("<h1>Verify your authenticator</h1><p>Enter the current six-digit code. "
+                "This verifies your session; it does not grant administrator or download access.</p>"
+                "<form action='/auth/mfa/verify' method='post'><input type='hidden' name='csrf' value='"
+                + row['csrf'] + "'><label>Authenticator code <input name='code' inputmode='numeric' "
+                "autocomplete='one-time-code' pattern='[0-9]{6}' maxlength='6' required></label>"
+                "<button>Verify</button></form><a href='/account'>Return to account</a>")
+
+    @app.post("/auth/mfa/verify")
+    async def mfa_verify(request: Request):
+        row = current(request)
+        mfa_ready()
+        fields = await protected_form(request, row)
+        try:
+            step_up.verify(row["token_hash"], fields.get("code", [""])[0])
+        except MFAError as error:
+            raise HTTPException(400, str(error)) from None
+        return RedirectResponse("/account", 303)
 
     @app.post("/auth/logout")
     async def logout(request: Request):
@@ -222,5 +299,6 @@ def from_environment():
         raise RuntimeError("Dedicated commercial PostgreSQL URL required")
     url = url.replace("postgres://", "postgresql+psycopg://", 1).replace("postgresql://", "postgresql+psycopg://", 1)
     config = Config(os.environ["GATEWAY_ORIGIN"], os.environ["WORKOS_CLIENT_ID"],
-                    os.environ["WORKOS_API_KEY"], os.environ.get("GATEWAY_AUTH_ENABLED") == "true")
+                    os.environ["WORKOS_API_KEY"], os.environ.get("GATEWAY_AUTH_ENABLED") == "true",
+                    os.environ.get("GATEWAY_MFA_ENABLED") == "true")
     return create_app(config, create_engine(url, pool_pre_ping=True, hide_parameters=True))

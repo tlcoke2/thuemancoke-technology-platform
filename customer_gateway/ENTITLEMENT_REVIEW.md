@@ -1,8 +1,10 @@
 # Customer access controls: review candidate
 
 This adds an internal database service and synthetic tests on top of gateway PR #37.
-It does not change the deployed login flow, migrate a database, create real customer
-access, or enable downloads. No new public endpoint is exposed.
+The MFA step-up candidate adds protected verification routes behind
+`GATEWAY_MFA_ENABLED=false` by default. It does not create administrator/customer
+access or enable downloads. An explicit additive staging migration is included;
+it never runs automatically. See MFA_STAGING.md for the staged rollout.
 
 ## Implemented
 
@@ -25,22 +27,24 @@ access, or enable downloads. No new public endpoint is exposed.
 
 Run `python -m unittest discover -s customer_gateway/tests -v`.
 The existing GitHub workflow runs this suite against SQLite and isolated PostgreSQL
-18. Local SQLite: 20 tests pass (12 authentication and 8 entitlement tests).
+18. Local SQLite: 36 tests pass (authentication, entitlement, MFA and migration cases).
 PostgreSQL concurrency races and production operations are not certified by these
 unit tests. Audit records are append-only in these service methods, not immutable
 against a database owner; external protected audit retention is still required.
 
 ## Required integration before enabling access
 
-1. Connect verified WorkOS MFA evidence to short-lived elevations, bound to the
-   current opaque session and provider subject. A configured MFA requirement or
-   verified email alone must not create an elevation. SSO users are exempt from
-   WorkOS hosted MFA policy; do not silently accept SSO as proof of MFA.
+1. Validate the implemented WorkOS challenge/verification adapter with the actual
+   staging account. The provider must confirm the single-use challenge and factor
+   identity before elevation. Hosted MFA settings alone do not create elevations.
+   SSO without an enrolled TOTP factor is denied step-up. No factor enrollment or
+   reset endpoint is exposed by this gateway.
 2. Establish two independently authenticated operator identities and controlled,
    audited bootstrap. Separate usernames do not themselves prove two people.
-3. Add a reviewed additive migration against the dedicated staging commercial
-   database; preserve the three existing authentication tables. Do not rerun
-   `init_db.py` against the initialized database.
+3. Review and run the additive migrate_access.py command only on the dedicated
+   staging commercial database with the feature disabled. It preserves existing
+   authentication tables, refuses unknown/partial schemas and refuses repeats.
+   Do not rerun init_db.py against the initialized database.
 4. Add authenticated, same-origin/CSRF-protected administration routes and UI,
    input limits, rate limits and audited membership changes. Tenant membership
    is not granted by login or by an email-domain match.

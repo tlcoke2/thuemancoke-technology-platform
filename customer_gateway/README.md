@@ -73,3 +73,10 @@ This candidate must remain staging-only while those controls are unfinished.
 
 Docs checked: https://workos.com/docs/authkit/vanilla/python and
 https://workos.com/docs/reference/authkit/authentication (2026-11-01).
+
+## MFA and entitlement candidate
+
+See [MFA_STAGING.md](MFA_STAGING.md) for the feature-disabled deployment and explicit
+additive migration. This supersedes the earlier statement that MFA has no implementation;
+live WorkOS step-up acceptance, operator provisioning and download integration remain
+outstanding. MFA verification alone never grants a role or entitlement.
