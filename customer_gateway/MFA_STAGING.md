@@ -52,7 +52,7 @@ The previous reviewed gateway commit can also be redeployed if necessary.
 
 ## Evidence and limits
 
-36 local tests pass. CI runs the same suite on SQLite and isolated PostgreSQL 18.
+43 local tests pass. CI runs the same suite on SQLite and isolated PostgreSQL 18.
 Provider calls are mocked in automated tests; the live acceptance above is still
 required. Successful MFA proves access to an enrolled factor, not business approval,
 an administrator appointment, a licence, or an independent second reviewer.
@@ -64,3 +64,40 @@ remain separate work. No production merge or release authorization is implied.
 Provider API references checked 1 November 2026:
 - https://workos.com/docs/reference/authkit/mfa
 - https://workos.com/docs/reference/mfa/challenge
+
+## First-time authenticator enrollment (no new migration)
+
+Observed live staging failure: the verified user has zero WorkOS authentication
+factors and hosted sign-in does not offer enrollment. Verification alone cannot
+create the first factor. This update adds a separate same-origin, CSRF-protected
+POST `/auth/mfa/enroll` and an account-page **Set up authenticator** button.
+
+Enrollment is disabled by default. The staging operator may set
+`GATEWAY_ENROLLMENT_SUBJECTS` to an exact comma-separated list of approved WorkOS
+user IDs. Never populate it from a public request. This is permission to enroll
+one first factor only; it grants no administrator, membership or download rights.
+
+The user must have signed into this gateway within the previous five minutes.
+The service locks the subject's quota record and asks WorkOS for the user's factors.
+Any existing factor, unexpected response or additional page refuses enrollment.
+It does not delete, reset, replace or retrieve an existing factor's setup secret.
+A concurrent change made directly outside the gateway cannot share this DB lock;
+operators must not enroll/reset the same user simultaneously in another interface.
+
+WorkOS generates the TOTP secret and initial challenge. The setup response displays
+an inline PNG QR (if provided and valid) and a manual time-based setup key. No
+third-party QR service is used. The response is no-store with frame blocking,
+strict CSP and no external image URLs. Only the user's current authenticated POST
+receives the secret; it is not persisted in database, cookies or audit records.
+The user must add it to their authenticator before leaving the page and confirm
+with a code. Challenge verification, rate limits and expiry use the existing flow.
+
+If the page is lost before the key is saved, or a provider mutation succeeds but
+the DB/audit transaction fails, a factor may exist without a usable local challenge.
+Do not automatically retry creation or reset it. An authenticated operator must
+inspect WorkOS and follow an approved recovery process. If the user already saved
+the key, **Verify authenticator** can start a new challenge normally.
+
+After the owner test, clear GATEWAY_ENROLLMENT_SUBJECTS to close first-time setup.
+No database changes are required to deploy or roll back this enrollment UI update.
+The separate access-table migration must not be rerun.

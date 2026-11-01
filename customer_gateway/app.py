@@ -45,6 +45,7 @@ class Config:
     api_key: str
     enabled: bool = False
     mfa_enabled: bool = False
+    enrollment_subjects: tuple[str, ...] = ()
 
     def __post_init__(self):
         u = urlsplit(self.origin)
@@ -85,11 +86,13 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         response = await call_next(request)
         # HTML form POSTs under no-referrer can send Origin: null. Only the
         # account page needs same-origin; keep callback codes fully suppressed.
-        policy = "same-origin" if request.url.path in ("/account", "/auth/mfa") else "no-referrer"
+        policy = "same-origin" if request.url.path in ("/account", "/auth/mfa", "/auth/mfa/enroll") else "no-referrer"
         response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
             "Strict-Transport-Security": "max-age=31536000"})
+        if request.url.path == "/auth/mfa/enroll":
+            response.headers["Content-Security-Policy"] += "; img-src data:"
         return response
 
     def enabled():
@@ -115,7 +118,8 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
     @app.get("/health")
     def health():
         return {"ok": True, "environment": "staging", "service": "tcl-customer-gateway",
-                "downloadsEnabled": False, "mfaStepUpEnabled": config.mfa_enabled}
+                "downloadsEnabled": False, "mfaStepUpEnabled": config.mfa_enabled,
+                "authenticatorSetupAvailable": bool(config.enrollment_subjects)}
 
     @app.get("/ready")
     def ready():
@@ -203,6 +207,10 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
                 + "</p><p>Account ID: <code>" + html.escape(row['subject']) + "</code></p>"
                 + "<form action='/auth/mfa/start' method='post'><input type='hidden' name='csrf' value='"
                 + row['csrf'] + "'><button>Verify authenticator</button></form>")
+            if row['subject'] in config.enrollment_subjects and not elevation:
+                mfa_html += ("<p>If you have never enrolled an authenticator for this account:</p>"
+                    "<form action='/auth/mfa/enroll' method='post'><input type='hidden' name='csrf' value='"
+                    + row['csrf'] + "'><button>Set up authenticator</button></form>")
         return ("<h1>Sign-in successful</h1><p>Your email is verified. Customer access awaits approval.</p>"
                 "<p>No download, administrator privilege or licence has been granted.</p>"
                 + mfa_html + "<form action='/auth/logout' method='post'><input type='hidden' name='csrf' value='"
@@ -229,6 +237,29 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
     def mfa_ready():
         if not config.mfa_enabled:
             raise HTTPException(503, "Additional verification is disabled")
+
+    @app.post("/auth/mfa/enroll", response_class=HTMLResponse)
+    async def mfa_enroll(request: Request):
+        row = current(request)
+        mfa_ready()
+        await protected_form(request, row)
+        try:
+            key, qr = step_up.enroll(row["token_hash"], config.enrollment_subjects)
+        except MFAError as error:
+            return HTMLResponse("<h1>Authenticator setup</h1><p>" + html.escape(str(error))
+                + "</p><a href='/account'>Return to account</a>", status_code=400)
+        qr_html = ("<img width='256' height='256' alt='Authenticator setup QR code' src='"
+                   + html.escape(qr, quote=True) + "'>") if qr else ""
+        return ("<h1>Set up your authenticator</h1><p>Add an account in your authenticator app. "
+            "Scan this QR code, or enter the setup key manually as a time-based account.</p>"
+            + qr_html + "<p>Account: TCL Customer Gateway</p><p>Setup key: <code>"
+            + html.escape(key) + "</code></p><p>Keep this page private. Add the account before "
+            "leaving this page; the setup key will not be shown again.</p>"
+            "<p>Enter the six-digit code from your app to confirm setup.</p>"
+            "<form action='/auth/mfa/verify' method='post'><input type='hidden' name='csrf' value='"
+            + row['csrf'] + "'><label>Authenticator code <input name='code' inputmode='numeric' "
+            "autocomplete='one-time-code' pattern='[0-9]{6}' maxlength='6' required></label>"
+            "<button>Confirm authenticator</button></form>")
 
     @app.post("/auth/mfa/start")
     async def mfa_start(request: Request):
@@ -300,5 +331,6 @@ def from_environment():
     url = url.replace("postgres://", "postgresql+psycopg://", 1).replace("postgresql://", "postgresql+psycopg://", 1)
     config = Config(os.environ["GATEWAY_ORIGIN"], os.environ["WORKOS_CLIENT_ID"],
                     os.environ["WORKOS_API_KEY"], os.environ.get("GATEWAY_AUTH_ENABLED") == "true",
-                    os.environ.get("GATEWAY_MFA_ENABLED") == "true")
+                    os.environ.get("GATEWAY_MFA_ENABLED") == "true",
+                    tuple(s.strip() for s in os.environ.get("GATEWAY_ENROLLMENT_SUBJECTS", "").split(",") if s.strip()))
     return create_app(config, create_engine(url, pool_pre_ping=True, hide_parameters=True))

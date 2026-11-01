@@ -15,11 +15,18 @@ class MFAProvider:
         self.error = False
         self.calls = 0
         self.during_verify = None
+        self.enrolled = False
 
     def begin(self, subject):
         self.calls += 1
         if self.error: raise RuntimeError('secret-provider-detail')
         return 'auth_challenge_Test', 'auth_factor_Test', 10500
+
+    def enroll(self, subject):
+        from customer_gateway.mfa import MFAError
+        if self.enrolled: raise MFAError('An authenticator already exists')
+        self.enrolled = True
+        return 'auth_challenge_Test', 'auth_factor_Test', 10500, 'JBSWY3DPEHPK3PXP', 'data:image/png;base64,dGVzdA=='
 
     def verify(self, challenge_id, factor_id, code):
         if self.during_verify: self.during_verify()
@@ -40,7 +47,7 @@ class MFATests(unittest.TestCase):
         metadata.create_all(self.engine)
         self.client.close()
         self.mfa_provider = MFAProvider()
-        self.config = Config(self.config.origin, 'client_synthetic', 'sk_synthetic', True, True)
+        self.config = Config(self.config.origin, 'client_synthetic', 'sk_synthetic', True, True, ('user_synthetic',))
         self.client = TestClient(create_app(self.config, self.engine, self.provider,
             lambda:self.now[0], self.mfa_provider), base_url=self.config.origin,
             follow_redirects=False, raise_server_exceptions=False)
@@ -59,6 +66,63 @@ class MFATests(unittest.TestCase):
 
     def verify(self, code='123456'):
         return self.post('/auth/mfa/verify', code=code)
+
+    def test_setup_displays_key_once_and_requires_confirmation(self):
+        self.assertIn('Set up authenticator', self.client.get('/account').text)
+        r = self.post('/auth/mfa/enroll')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('JBSWY3DPEHPK3PXP', r.text)
+        self.assertIn('Confirm authenticator', r.text)
+        self.assertEqual(r.headers['cache-control'], 'no-store')
+        self.assertEqual(r.headers['referrer-policy'], 'same-origin')
+        self.assertIn('img-src data:', r.headers['content-security-policy'])
+        self.assertEqual(self.count(elevations), 0)
+        with self.engine.connect() as c:
+            for table in (challenges, audit, sessions):
+                self.assertNotIn('JBSWY3DPEHPK3PXP', str(c.execute(select(table)).all()))
+        self.assertEqual(self.verify().status_code, 303)
+        self.assertEqual(self.count(elevations), 1)
+        self.assertNotIn('JBSWY3DPEHPK3PXP', self.client.get('/account').text)
+        self.assertEqual(self.client.post('/api/downloads').status_code, 403)
+
+    def test_setup_refuses_existing_factor_without_replacing_it(self):
+        self.mfa_provider.enrolled = True
+        r = self.post('/auth/mfa/enroll')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('already exists', r.text)
+        self.assertNotIn('JBSWY3DPEHPK3PXP', r.text)
+        self.assertEqual(self.count(elevations), 0)
+
+    def test_setup_rejects_old_session_and_cross_origin(self):
+        self.now[0] += 301
+        r = self.post('/auth/mfa/enroll')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('Sign out and sign in again', r.text)
+        self.assertFalse(self.mfa_provider.enrolled)
+        self.now[0] -= 301
+        r = self.client.post('/auth/mfa/enroll', data={'csrf':self.csrf},
+                             headers={'origin':'https://attacker.example'})
+        self.assertEqual(r.status_code, 403)
+        self.assertFalse(self.mfa_provider.enrolled)
+
+    def test_setup_is_disabled_for_unlisted_subject(self):
+        config = Config(self.config.origin, 'client_synthetic', 'sk_synthetic', True, True)
+        with TestClient(create_app(config, self.engine, self.provider, lambda:self.now[0], self.mfa_provider),
+                        base_url=config.origin) as client:
+            client.cookies.set(SESSION_COOKIE, self.client.cookies.get(SESSION_COOKIE))
+            r = client.post('/auth/mfa/enroll', data={'csrf':self.csrf}, headers={'origin':config.origin})
+            self.assertEqual(r.status_code, 400)
+        self.assertFalse(self.mfa_provider.enrolled)
+
+    def test_setup_audit_failure_does_not_expose_key_or_elevate(self):
+        audit.drop(self.engine)
+        r = self.post('/auth/mfa/enroll')
+        self.assertEqual(r.status_code, 400)
+        self.assertNotIn('JBSWY3DPEHPK3PXP', r.text)
+        self.assertEqual(self.count(elevations), 0)
+        self.assertEqual(self.count(challenges), 0)
+        # External factor creation cannot be rolled back; no automatic reset/retry.
+        self.assertTrue(self.mfa_provider.enrolled)
 
     def test_verified_session_and_no_privilege(self):
         self.assertEqual(self.begin().status_code, 303)
@@ -170,6 +234,27 @@ class MFATests(unittest.TestCase):
 
 
 class ProviderAdapterTests(unittest.TestCase):
+    def test_enrollment_adapter_requires_empty_factors_and_valid_response(self):
+        provider = WorkOSMFA('sk_synthetic')
+        response = {'authentication_factor':{'id':'auth_factor_Test','type':'totp','user_id':'user_Test',
+                    'totp':{'secret':'JBSWY3DPEHPK3PXP','qr_code':'https://untrusted.example/qr'}},
+                    'authentication_challenge':{'id':'auth_challenge_Test',
+                    'authentication_factor_id':'auth_factor_Test','expires_at':'2026-11-01T12:00:00Z'}}
+        with patch.object(provider, '_request', side_effect=[{'data':[]},response]) as request:
+            result = provider.enroll('user_Test')
+            self.assertEqual(result[3:], ('JBSWY3DPEHPK3PXP',''))
+            self.assertEqual(request.call_args.args, ('POST','/user_management/users/user_Test/auth_factors'))
+            self.assertEqual(request.call_args.kwargs['json']['type'], 'totp')
+            self.assertNotIn('totp_secret', request.call_args.kwargs['json'])
+
+    def test_enrollment_adapter_never_overwrites_or_trusts_missing_list(self):
+        from customer_gateway.mfa import MFAError
+        for response in ({}, {'data':[{'type':'totp'}]}, {'data':[], 'list_metadata':{'after':'cursor'}}):
+            provider = WorkOSMFA('sk_synthetic')
+            with patch.object(provider, '_request', return_value=response) as request:
+                with self.assertRaises(MFAError): provider.enroll('user_Test')
+                self.assertEqual(request.call_count, 1)
+
     def test_only_bound_provider_challenge_is_accepted(self):
         provider = WorkOSMFA('sk_synthetic')
         factor = {'id':'auth_factor_Test', 'type':'totp', 'user_id':'user_Test', 'totp':{'secret':'never-retain'}}

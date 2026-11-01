@@ -27,7 +27,7 @@ it never runs automatically. See MFA_STAGING.md for the staged rollout.
 
 Run `python -m unittest discover -s customer_gateway/tests -v`.
 The existing GitHub workflow runs this suite against SQLite and isolated PostgreSQL
-18. Local SQLite: 36 tests pass (authentication, entitlement, MFA and migration cases).
+18. Local SQLite: 43 tests pass (authentication, entitlement, MFA and migration cases).
 PostgreSQL concurrency races and production operations are not certified by these
 unit tests. Audit records are append-only in these service methods, not immutable
 against a database owner; external protected audit retention is still required.
@@ -37,8 +37,8 @@ against a database owner; external protected audit retention is still required.
 1. Validate the implemented WorkOS challenge/verification adapter with the actual
    staging account. The provider must confirm the single-use challenge and factor
    identity before elevation. Hosted MFA settings alone do not create elevations.
-   SSO without an enrolled TOTP factor is denied step-up. No factor enrollment or
-   reset endpoint is exposed by this gateway.
+   SSO without an enrolled TOTP factor is denied step-up. First-factor enrollment
+   is restricted to operator-listed subjects; no reset endpoint is exposed.
 2. Establish two independently authenticated operator identities and controlled,
    audited bootstrap. Separate usernames do not themselves prove two people.
 3. Review and run the additive migrate_access.py command only on the dedicated

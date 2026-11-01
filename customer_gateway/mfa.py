@@ -1,4 +1,4 @@
-"""WorkOS TOTP step-up. Never store or return factor secrets or one-time codes."""
+"""WorkOS TOTP verification and restricted first enrollment. Secrets are never persisted."""
 import re
 import secrets
 from datetime import datetime
@@ -65,6 +65,36 @@ class WorkOSMFA:
             raise MFAError('Invalid challenge expiry')
         return challenge_id, factor_id, int(expiry.timestamp())
 
+    def enroll(self, subject):
+        subject = identifier(subject, 'user_')
+        data = self._request('GET', f'/user_management/users/{subject}/auth_factors', params={'limit':100})
+        if not isinstance(data.get('data'), list):
+            raise MFAError('Could not confirm existing factors; setup refused')
+        if data['data'] or (data.get('list_metadata') or {}).get('after'):
+            raise MFAError('An authenticator already exists. Use Verify authenticator; setup cannot replace it.')
+        result = self._request('POST', f'/user_management/users/{subject}/auth_factors',
+            json={'type':'totp', 'totp_issuer':'TCL Customer Gateway', 'totp_user':subject})
+        factor = result.get('authentication_factor', {})
+        challenge = result.get('authentication_challenge', {})
+        factor_id = identifier(factor.get('id'), 'auth_factor_')
+        owner = factor.get('user_id', factor.get('userId'))
+        if factor.get('type') != 'totp' or (owner is not None and owner != subject):
+            raise MFAError('Unexpected enrollment identity; contact the operator')
+        if challenge.get('authentication_factor_id') != factor_id:
+            raise MFAError('Unexpected enrollment challenge; contact the operator')
+        challenge_id = identifier(challenge.get('id'), 'auth_challenge_')
+        expiry = datetime.fromisoformat(challenge['expires_at'].replace('Z', '+00:00'))
+        if expiry.tzinfo is None:
+            raise MFAError('Invalid enrollment expiry')
+        details = factor.get('totp', {})
+        key = details.get('secret', '')
+        if not isinstance(key, str) or not re.fullmatch(r'[A-Z2-7]{16,128}={0,6}', key):
+            raise MFAError('Setup key unavailable; contact the operator')
+        qr = details.get('qr_code', '')
+        if not isinstance(qr, str) or len(qr) > 200000 or not re.fullmatch(r'data:image/png;base64,[A-Za-z0-9+/=]+', qr):
+            qr = ''  # Manual entry remains available; never embed SVG/remote content.
+        return challenge_id, factor_id, int(expiry.timestamp()), key, qr
+
     def verify(self, challenge_id, factor_id, code):
         identifier(challenge_id, 'auth_challenge_')
         data = self._request('POST', f'/auth/challenges/{challenge_id}/verify', json={'code':code})
@@ -86,7 +116,7 @@ class StepUp:
             raise MFAError('Sign in again')
         return row
 
-    def begin(self, session_hash):
+    def _reserve(self, session_hash):
         now = int(self.clock())
         with self.engine.begin() as c:
             session = self._session(c, session_hash)
@@ -109,6 +139,10 @@ class StepUp:
                       .values(window_start=start, count=count+1))
             c.execute(delete(challenges).where(challenges.c.session_hash == session_hash))
             c.execute(delete(elevations).where(elevations.c.session_hash == session_hash))
+        return subject
+
+    def begin(self, session_hash):
+        subject = self._reserve(session_hash)
         # Quota is committed even when the provider fails. Never log its response.
         try:
             challenge_id, factor_id, expiry = self.provider.begin(subject)
@@ -123,6 +157,40 @@ class StepUp:
             c.execute(delete(challenges).where(challenges.c.session_hash == session_hash))
             c.execute(insert(challenges).values(session_hash=session_hash, subject=subject,
                       challenge_id=challenge_id, factor_id=factor_id, expires=expiry))
+
+    def enroll(self, session_hash, allowed_subjects):
+        with self.engine.begin() as c:
+            session = self._session(c, session_hash)
+            if session['subject'] not in allowed_subjects:
+                raise MFAError('First-time setup is not enabled for this account')
+            # Gateway sessions are issued for exactly 900 seconds, without refresh.
+            if session['expires'] <= int(self.clock()) + 600:
+                raise MFAError('Sign out and sign in again before setting up your authenticator')
+        subject = self._reserve(session_hash)
+        try:
+            with self.engine.begin() as c:
+                session = self._session(c, session_hash)
+                if session['expires'] <= int(self.clock()) + 600:
+                    raise MFAError('Sign in again before setting up your authenticator')
+                # Serialize enrollment for the same subject across browser sessions.
+                c.execute(select(attempts).where(attempts.c.subject == subject).with_for_update()).one()
+                challenge_id, factor_id, expiry, key, qr = self.provider.enroll(subject)
+                expiry = min(expiry, int(self.clock()) + 300, session['expires'])
+                if expiry <= int(self.clock()):
+                    raise MFAError('Setup challenge expired; contact the operator')
+                c.execute(delete(challenges).where(challenges.c.session_hash == session_hash))
+                c.execute(insert(challenges).values(session_hash=session_hash, subject=subject,
+                    challenge_id=challenge_id, factor_id=factor_id, expires=expiry))
+                c.execute(insert(self.audit).values(id=secrets.token_hex(16),
+                    event='staging_mfa_enrollment_started', subject=subject, created=int(self.clock())))
+            # Secret is returned only to this authenticated POST response, never DB/audit.
+            return key, qr
+        except MFAError:
+            raise
+        except Exception:
+            # Provider creation cannot be rolled back with a local DB transaction.
+            # Never retry automatically or delete/reset an existing factor.
+            raise MFAError('Setup could not complete. Return to your account; contact the operator if a factor now exists.') from None
 
     def verify(self, session_hash, code):
         with self.engine.begin() as c:
