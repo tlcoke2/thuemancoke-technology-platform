@@ -76,7 +76,10 @@ def create_app(config, engine, provider=None, clock=time.time):
         if request.url.hostname != urlsplit(config.origin).hostname and request.url.path != "/health":
             return HTMLResponse("Invalid host", status_code=400)
         response = await call_next(request)
-        response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
+        # HTML form POSTs under no-referrer can send Origin: null. Only the
+        # account page needs same-origin; keep callback codes fully suppressed.
+        policy = "same-origin" if request.url.path == "/account" else "no-referrer"
+        response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
             "Strict-Transport-Security": "max-age=31536000"})

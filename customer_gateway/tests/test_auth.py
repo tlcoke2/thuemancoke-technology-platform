@@ -143,6 +143,20 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(self.client.get("/auth/login", headers={"host":"attacker.example"}).status_code, 400)
         self.assertEqual(self.client.post("/api/downloads").status_code, 401)
 
+    def test_logout_page_policy_and_rejected_origins(self):
+        callback = self.finish(self.start())
+        self.assertEqual(callback.headers["referrer-policy"], "no-referrer")
+        page = self.client.get("/account")
+        self.assertEqual(page.headers["referrer-policy"], "same-origin")
+        token = re.search("name='csrf' value='([^']+)'", page.text)[1]
+        for origin in ("null", "https://attacker.example"):
+            r = self.client.post("/auth/logout", data={"csrf": token}, headers={"Origin": origin})
+            self.assertEqual(r.status_code, 403)
+        self.assertEqual(self.count(sessions), 1)
+        r = self.client.post("/auth/logout", data={"csrf": token}, headers={"Origin": self.config.origin})
+        self.assertEqual(r.status_code, 303)
+        self.assertEqual(self.count(sessions), 0)
+
     def test_no_open_redirect_or_public_docs(self):
         state = self.start()
         r = self.client.get("/auth/callback", params={"state":state,"code":"code","next":"https://attacker.example"})
