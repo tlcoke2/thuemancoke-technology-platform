@@ -1,0 +1,34 @@
+name: Isolated customer gateway sign-in
+on:
+  pull_request:
+    paths: ['customer_gateway/**', '.github/workflows/customer-gateway.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        database: [sqlite, postgres18]
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: gateway_test
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: gateway_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U gateway_test -d gateway_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      GATEWAY_TEST_POSTGRES_URL: ${{ matrix.database == 'postgres18' && 'postgresql+psycopg://gateway_test:synthetic-ci-only@127.0.0.1:5432/gateway_test' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r customer_gateway/requirements.txt
+      - run: python -m unittest discover -s customer_gateway/tests -v
