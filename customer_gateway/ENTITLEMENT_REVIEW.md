@@ -27,7 +27,7 @@ it never runs automatically. See MFA_STAGING.md for the staged rollout.
 
 Run `python -m unittest discover -s customer_gateway/tests -v`.
 The existing GitHub workflow runs this suite against SQLite and isolated PostgreSQL
-18. Local SQLite: 43 tests pass (authentication, entitlement, MFA and migration cases).
+18. Local SQLite: 52 tests pass (authentication, entitlement, MFA and migration cases).
 PostgreSQL concurrency races and production operations are not certified by these
 unit tests. Audit records are append-only in these service methods, not immutable
 against a database owner; external protected audit retention is still required.
@@ -39,15 +39,18 @@ against a database owner; external protected audit retention is still required.
    identity before elevation. Hosted MFA settings alone do not create elevations.
    SSO without an enrolled TOTP factor is denied step-up. First-factor enrollment
    is restricted to operator-listed subjects; no reset endpoint is exposed.
-2. Establish two independently authenticated operator identities and controlled,
-   audited bootstrap. Separate usernames do not themselves prove two people.
+2. Run the explicit appoint_admins.py staging command for the owner-authorized
+   pair, after closing first-time enrollment. It checks live provider identities,
+   the nominated approver email and gateway MFA audit evidence. Separate usernames
+   do not themselves prove two people. Live appointment acceptance is still required.
 3. Review and run the additive migrate_access.py command only on the dedicated
    staging commercial database with the feature disabled. It preserves existing
    authentication tables, refuses unknown/partial schemas and refuses repeats.
    Do not rerun init_db.py against the initialized database.
-4. Add authenticated, same-origin/CSRF-protected administration routes and UI,
-   input limits, rate limits and audited membership changes. Tenant membership
-   is not granted by login or by an email-domain match.
+4. Validate the added MFA-protected approval dashboard and approve/revoke routes
+   with the appointed pair. Customer intake/proposal screens, rate limits and
+   audited membership changes remain. Tenant membership is not granted by login
+   or by an email-domain match.
 5. Integrate the authorization policy from PR #36 with freshly loaded membership,
    grant and release state. Add a read-only R2 signer and audit issuance before
    returning a short-lived URL. Keep download issuance disabled until these pass.

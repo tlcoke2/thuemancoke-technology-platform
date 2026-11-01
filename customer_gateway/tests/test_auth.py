@@ -161,7 +161,7 @@ class AuthTests(unittest.TestCase):
         state = self.start()
         r = self.client.get("/auth/callback", params={"state":state,"code":"code","next":"https://attacker.example"})
         self.assertEqual(r.headers["location"], "/account")
-        for path in ("/docs", "/openapi.json", "/admin"):
+        for path in ("/docs", "/openapi.json"):
             self.assertEqual(self.client.get(path).status_code, 404)
         self.assertEqual(self.client.get("/").headers["cache-control"], "no-store")
 

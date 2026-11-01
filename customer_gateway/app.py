@@ -5,6 +5,7 @@ import os
 import secrets
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from urllib.parse import urlencode, urlsplit
 
 import httpx
@@ -75,6 +76,11 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         from .mfa import StepUp, WorkOSMFA, MFAError, elevations, metadata as access_metadata
     except ImportError:
         from mfa import StepUp, WorkOSMFA, MFAError, elevations, metadata as access_metadata
+    try:
+        from .entitlements import Entitlements, Denied, admins, grants
+    except ImportError:
+        from entitlements import Entitlements, Denied, admins, grants
+    entitlements = Entitlements(engine, sessions, clock)
     step_up = StepUp(engine, sessions, audit, mfa_provider or WorkOSMFA(config.api_key), clock)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -86,7 +92,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         response = await call_next(request)
         # HTML form POSTs under no-referrer can send Origin: null. Only the
         # account page needs same-origin; keep callback codes fully suppressed.
-        policy = "same-origin" if request.url.path in ("/account", "/auth/mfa", "/auth/mfa/enroll") else "no-referrer"
+        policy = "same-origin" if request.url.path in ("/account", "/auth/mfa", "/auth/mfa/enroll", "/admin") else "no-referrer"
         response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
@@ -197,12 +203,15 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
     def account(request: Request):
         row = current(request)
         mfa_html = ""
+        is_admin = False
         if config.mfa_enabled:
             with engine.connect() as c:
                 elevation = c.execute(select(elevations.c.expires).where(
                     elevations.c.session_hash == row['token_hash'],
                     elevations.c.subject == row['subject'],
                     elevations.c.expires > int(clock()))).first()
+                is_admin = c.execute(select(admins.c.subject).where(
+                    admins.c.subject == row["subject"], admins.c.active.is_(True))).first() is not None
             mfa_html = ("<p>Additional verification: " + ("verified for this session" if elevation else "required")
                 + "</p><p>Account ID: <code>" + html.escape(row['subject']) + "</code></p>"
                 + "<form action='/auth/mfa/start' method='post'><input type='hidden' name='csrf' value='"
@@ -211,8 +220,12 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
                 mfa_html += ("<p>If you have never enrolled an authenticator for this account:</p>"
                     "<form action='/auth/mfa/enroll' method='post'><input type='hidden' name='csrf' value='"
                     + row['csrf'] + "'><button>Set up authenticator</button></form>")
-        return ("<h1>Sign-in successful</h1><p>Your email is verified. Customer access awaits approval.</p>"
-                "<p>No download, administrator privilege or licence has been granted.</p>"
+        role_html = ("<p>Your email is verified. Role: <strong>Gateway administrator / approver</strong>.</p>"
+                     "<p><a href='/admin'>Open approval dashboard</a>. Recent authenticator verification is required.</p>"
+                     "<p>This role does not grant customer downloads or issue a licence.</p>") if is_admin else (
+                     "<p>Your email is verified. Customer access awaits approval.</p>"
+                     "<p>No download, administrator privilege or licence has been granted.</p>")
+        return ("<h1>Sign-in successful</h1>" + role_html
                 + mfa_html + "<form action='/auth/logout' method='post'><input type='hidden' name='csrf' value='"
                 +row["csrf"]+"'><button>Sign out of this gateway</button></form>")
 
@@ -293,6 +306,53 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         except MFAError as error:
             raise HTTPException(400, str(error)) from None
         return RedirectResponse("/account", 303)
+
+    @app.get("/admin", response_class=HTMLResponse)
+    def admin_page(request: Request):
+        row = current(request)
+        mfa_ready()
+        try:
+            with engine.begin() as c:
+                entitlements._actor(c, row['token_hash'], int(clock()))
+                records = c.execute(select(grants).order_by(grants.c.id).limit(100)).mappings().all()
+        except Denied:
+            return HTMLResponse("<h1>Approval dashboard</h1><p>An appointed administrator and recent "
+                "authenticator verification are required.</p><a href='/account'>Return to account</a>", status_code=403)
+        content = "<h1>Approval dashboard — Staging</h1><p>Downloads and licence issuance remain disabled.</p>"
+        if not records:
+            content += "<p>No download grant requests are awaiting review.</p>"
+        else:
+            content += "<p>Showing up to 100 grants.</p><table><tr><th>Grant</th><th>Tenant</th>"
+            content += "<th>State</th><th>Release</th><th>Proposed by</th><th>Starts (UTC)</th><th>Expires (UTC)</th><th>Contract reference</th><th>Approval reference</th><th>Action</th></tr>"
+            for g in records:
+                esc = lambda v: html.escape(str(v), quote=True)
+                actions = ""
+                if g['state'] == 'pending' and g['proposer'] != row['subject']:
+                    actions += ("<form method='post' action='/admin/grants/" + esc(g['id'])
+                        + "/approve'><input type='hidden' name='csrf' value='" + row['csrf']
+                        + "'><button>Approve</button></form>")
+                if g['state'] != 'revoked':
+                    actions += ("<form method='post' action='/admin/grants/" + esc(g['id'])
+                        + "/revoke'><input type='hidden' name='csrf' value='" + row['csrf']
+                        + "'><button>Revoke</button></form>")
+                content += "<tr>" + "".join("<td>" + esc(datetime.fromtimestamp(g[k], timezone.utc).strftime("%d %b %Y %H:%M") if k in ("starts", "expires") else g[k]) + "</td>" for k in
+                    ('id','tenant_id','state','release_id','proposer','starts','expires','contract_reference','approval_reference')) + "<td>" + actions + "</td></tr>"
+            content += "</table>"
+        return content + "<p><a href='/account'>Return to account</a></p>"
+
+    @app.post("/admin/grants/{grant_id}/{action}")
+    async def admin_action(grant_id: str, action: str, request: Request):
+        row = current(request)
+        mfa_ready()
+        await protected_form(request, row)
+        if len(grant_id) > 64 or action not in ('approve', 'revoke'):
+            raise HTTPException(400, "Invalid action")
+        try:
+            operation = entitlements.approve if action == 'approve' else entitlements.revoke
+            operation(row['token_hash'], grant_id)
+        except Denied as error:
+            raise HTTPException(403, str(error)) from None
+        return RedirectResponse('/admin', 303)
 
     @app.post("/auth/logout")
     async def logout(request: Request):

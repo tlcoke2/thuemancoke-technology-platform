@@ -124,6 +124,43 @@ class MFATests(unittest.TestCase):
         # External factor creation cannot be rolled back; no automatic reset/retry.
         self.assertTrue(self.mfa_provider.enrolled)
 
+    def test_admin_dashboard_requires_role_and_recent_mfa(self):
+        from customer_gateway.entitlements import admins
+        self.assertEqual(self.client.get('/admin').status_code, 403)
+        with self.engine.begin() as c:
+            c.execute(insert(admins).values(subject='user_synthetic',active=True))
+        self.assertIn('Gateway administrator / approver', self.client.get('/account').text)
+        self.assertEqual(self.client.get('/admin').status_code, 403)
+        self.begin()
+        self.verify()
+        page = self.client.get('/admin')
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('No download grant requests', page.text)
+        self.assertEqual(page.headers['referrer-policy'], 'same-origin')
+        self.now[0] += 300
+        self.assertEqual(self.client.get('/admin').status_code, 403)
+
+    def test_admin_actions_enforce_csrf_self_approval_and_escape_html(self):
+        from customer_gateway.entitlements import admins, tenants, grants, RELEASE
+        with self.engine.begin() as c:
+            c.execute(insert(admins), [{'subject':'user_synthetic','active':True}, {'subject':'user_other','active':True}])
+            c.execute(insert(tenants).values(id='tenant_test',active=True))
+            for grant_id, proposer in (('own','user_synthetic'),('other','user_other')):
+                c.execute(insert(grants).values(id=grant_id,tenant_id='tenant_test',release_id=RELEASE,
+                    state='pending',proposer=proposer,contract_reference='<script>alert(1)</script>',
+                    approval_reference='synthetic-review',starts=10000,expires=11000))
+        self.begin()
+        self.verify()
+        self.assertNotIn('<script>', self.client.get('/admin').text)
+        self.assertEqual(self.client.post('/admin/grants/other/approve', data={'csrf':self.csrf}).status_code, 403)
+        self.assertEqual(self.post('/admin/grants/own/approve').status_code, 403)
+        self.assertEqual(self.post('/admin/grants/other/approve').status_code, 303)
+        with self.engine.connect() as c:
+            self.assertEqual(c.scalar(select(grants.c.state).where(grants.c.id=='other')), 'approved')
+        self.assertEqual(self.post('/admin/grants/other/revoke').status_code, 303)
+        with self.engine.connect() as c:
+            self.assertEqual(c.scalar(select(grants.c.state).where(grants.c.id=='other')), 'revoked')
+
     def test_verified_session_and_no_privilege(self):
         self.assertEqual(self.begin().status_code, 303)
         page = self.client.get('/auth/mfa')
