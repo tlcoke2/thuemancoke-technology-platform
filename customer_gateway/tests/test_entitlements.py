@@ -20,7 +20,7 @@ class EntitlementTests(unittest.TestCase):
             metadata.drop_all(self.engine)
             auth_metadata.drop_all(self.engine)
         else:
-            self.engine = create_engine('sqlite://', poolclass=StaticPool)
+            self.engine = create_engine('sqlite://', poolclass=StaticPool, connect_args={'check_same_thread':False})
         auth_metadata.create_all(self.engine)
         metadata.create_all(self.engine)
         self.now = 10000

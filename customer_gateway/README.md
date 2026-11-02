@@ -80,3 +80,10 @@ See [MFA_STAGING.md](MFA_STAGING.md) for the feature-disabled deployment and exp
 additive migration. This supersedes the earlier statement that MFA has no implementation;
 live WorkOS step-up acceptance, operator provisioning and download integration remain
 outstanding. MFA verification alone never grants a role or entitlement.
+
+## Customer onboarding and delivery candidate
+
+See [CUSTOMER_ROLLOUT.md](CUSTOMER_ROLLOUT.md) for the implemented customer proposal,
+independent approval, customer view and disabled private R2 signer, the new explicit
+additive migration, 85-test evidence, and the remaining production gates. This
+supersedes earlier implementation-status notes; no live completion is implied.

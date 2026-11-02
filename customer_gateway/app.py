@@ -47,6 +47,9 @@ class Config:
     enabled: bool = False
     mfa_enabled: bool = False
     enrollment_subjects: tuple[str, ...] = ()
+    onboarding_enabled: bool = False
+    downloads_enabled: bool = False
+    release_approved: bool = False
 
     def __post_init__(self):
         u = urlsplit(self.origin)
@@ -70,7 +73,7 @@ class WorkOS:
             return response.json()
 
 
-def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None):
+def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None, identity_lookup=None, download_signer=None):
     provider = provider or WorkOS(config)
     try:
         from .mfa import StepUp, WorkOSMFA, MFAError, elevations, metadata as access_metadata
@@ -81,6 +84,11 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
     except ImportError:
         from entitlements import Entitlements, Denied, admins, grants
     entitlements = Entitlements(engine, sessions, clock)
+    try:
+        from .downloads import Downloads, Denied as DownloadDenied
+    except ImportError:
+        from downloads import Downloads, Denied as DownloadDenied
+    download_service = Downloads(entitlements, download_signer, config.downloads_enabled, config.release_approved)
     step_up = StepUp(engine, sessions, audit, mfa_provider or WorkOSMFA(config.api_key), clock)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -92,7 +100,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         response = await call_next(request)
         # HTML form POSTs under no-referrer can send Origin: null. Only the
         # account page needs same-origin; keep callback codes fully suppressed.
-        policy = "same-origin" if request.url.path in ("/account", "/auth/mfa", "/auth/mfa/enroll", "/admin") else "no-referrer"
+        policy = "same-origin" if request.url.path in ("/account", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/customer") else "no-referrer"
         response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
@@ -124,8 +132,9 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
     @app.get("/health")
     def health():
         return {"ok": True, "environment": "staging", "service": "tcl-customer-gateway",
-                "downloadsEnabled": False, "mfaStepUpEnabled": config.mfa_enabled,
-                "authenticatorSetupAvailable": bool(config.enrollment_subjects)}
+                "downloadsEnabled": config.downloads_enabled and config.release_approved and download_signer is not None, "mfaStepUpEnabled": config.mfa_enabled,
+                "authenticatorSetupAvailable": bool(config.enrollment_subjects),
+                "customerOnboardingEnabled": config.onboarding_enabled}
 
     @app.get("/ready")
     def ready():
@@ -134,6 +143,8 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             if config.mfa_enabled:
                 for table in access_metadata.sorted_tables:
                     c.execute(select(table).limit(0))
+            if config.onboarding_enabled:
+                c.execute(select(customer_requests).limit(0))
         return {"ready": True}
 
     @app.get("/", response_class=HTMLResponse)
@@ -225,6 +236,8 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
                      "<p>This role does not grant customer downloads or issue a licence.</p>") if is_admin else (
                      "<p>Your email is verified. Customer access awaits approval.</p>"
                      "<p>No download, administrator privilege or licence has been granted.</p>")
+        if config.onboarding_enabled:
+            role_html += "<p><a href='/customer'>My customer access</a></p>"
         return ("<h1>Sign-in successful</h1>" + role_html
                 + mfa_html + "<form action='/auth/logout' method='post'><input type='hidden' name='csrf' value='"
                 +row["csrf"]+"'><button>Sign out of this gateway</button></form>")
@@ -237,7 +250,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         body = bytearray()
         async for chunk in request.stream():
             body.extend(chunk)
-            if len(body) > 512:
+            if len(body) > (2048 if request.url.path == "/admin/customers/propose" else 512):
                 raise HTTPException(413, "Form too large")
         from urllib.parse import parse_qs
         fields = parse_qs(body.decode("utf-8", errors="replace"))
@@ -318,7 +331,9 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         except Denied:
             return HTMLResponse("<h1>Approval dashboard</h1><p>An appointed administrator and recent "
                 "authenticator verification are required.</p><a href='/account'>Return to account</a>", status_code=403)
-        content = "<h1>Approval dashboard — Staging</h1><p>Downloads and licence issuance remain disabled.</p>"
+        content = "<h1>Approval dashboard — Staging</h1><p>A download grant does not issue a software licence.</p>"
+        if config.onboarding_enabled:
+            content += "<p><a href='/admin/customers'>Customer onboarding and review</a></p>"
         if not records:
             content += "<p>No download grant requests are awaiting review.</p>"
         else:
@@ -349,6 +364,11 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             raise HTTPException(400, "Invalid action")
         try:
             operation = entitlements.approve if action == 'approve' else entitlements.revoke
+            if config.onboarding_enabled and action == 'approve':
+                with engine.connect() as c:
+                    onboard = c.execute(select(customer_requests.c.id).where(customer_requests.c.id == grant_id)).first()
+                if onboard:
+                    operation = onboarding_service.approve
             operation(row['token_hash'], grant_id)
         except Denied as error:
             raise HTTPException(403, str(error)) from None
@@ -374,11 +394,38 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         response.delete_cookie(SESSION_COOKIE, secure=True, httponly=True, samesite="lax", path="/")
         return response
 
-    @app.post("/api/downloads")
-    def downloads(request: Request):
-        current(request)
-        raise HTTPException(403, "Downloads are not enabled")
+    @app.post("/api/downloads", response_class=HTMLResponse)
+    async def downloads(request: Request):
+        row = current(request)
+        if not config.downloads_enabled or not config.release_approved:
+            raise HTTPException(403, "Downloads are not enabled")
+        fields = await protected_form(request, row)
+        grant_id = fields.get('grant_id', [''])[0]
+        if not grant_id or len(grant_id) > 64:
+            raise HTTPException(400, "Invalid download request")
+        try:
+            url, decision = download_service.issue(row['token_hash'], grant_id)
+        except DownloadDenied as error:
+            raise HTTPException(403, str(error)) from None
+        except Exception:
+            raise HTTPException(503, "Download issuance unavailable; no link released") from None
+        return ("<h1>Private installer download</h1><p>This link expires in "
+            + str(decision.ttl_seconds) + " seconds. Keep it private.</p><p><a rel='noreferrer' href='"
+            + html.escape(url, quote=True) + "'>Download TEC EPR Clinic Edition 1.0.0</a></p>"
+            "<p>Verify the archive SHA-256 and publisher signature before installation.</p><p>SHA-256: <code>"
+            + decision.release.sha256 + "</code></p><p>No software licence is issued by this download.</p>"
+            "<a href='/customer'>Return to customer access</a>")
 
+    try:
+        from .onboarding_ui import register
+        from .onboarding import requests as customer_requests
+        from .appoint_admins import lookup_user
+    except ImportError:
+        from onboarding_ui import register
+        from onboarding import requests as customer_requests
+        from appoint_admins import lookup_user
+    onboarding_service = register(app, config, engine, entitlements, current, protected_form,
+        identity_lookup or (lambda subject: lookup_user(config.api_key, subject)))
     return app
 
 
@@ -392,5 +439,15 @@ def from_environment():
     config = Config(os.environ["GATEWAY_ORIGIN"], os.environ["WORKOS_CLIENT_ID"],
                     os.environ["WORKOS_API_KEY"], os.environ.get("GATEWAY_AUTH_ENABLED") == "true",
                     os.environ.get("GATEWAY_MFA_ENABLED") == "true",
-                    tuple(s.strip() for s in os.environ.get("GATEWAY_ENROLLMENT_SUBJECTS", "").split(",") if s.strip()))
-    return create_app(config, create_engine(url, pool_pre_ping=True, hide_parameters=True))
+                    tuple(s.strip() for s in os.environ.get("GATEWAY_ENROLLMENT_SUBJECTS", "").split(",") if s.strip()),
+                    os.environ.get("GATEWAY_ONBOARDING_ENABLED") == "true",
+                    os.environ.get("GATEWAY_DOWNLOADS_ENABLED") == "true",
+                    os.environ.get("GATEWAY_RELEASE_APPROVED") == "true")
+    signer = None
+    if config.downloads_enabled and config.release_approved:
+        try:
+            from .downloads import R2Signer
+        except ImportError:
+            from downloads import R2Signer
+        signer = R2Signer(os.environ.get('R2_ACCESS_KEY_ID',''), os.environ.get('R2_SECRET_ACCESS_KEY',''))
+    return create_app(config, create_engine(url, pool_pre_ping=True, hide_parameters=True), download_signer=signer)
