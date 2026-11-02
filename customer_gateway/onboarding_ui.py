@@ -12,9 +12,24 @@ except ImportError:
     from entitlements import grants, tenants, memberships, Denied
 
 
+class AdministratorVerificationRequired(HTTPException):
+    def __init__(self):
+        super().__init__(403, "Administrator verification required")
+
+
 def register(app, config, engine, access, current, protected_form, lookup):
     service = Onboarding(access, lookup)
     esc = lambda value: html.escape(str(value), quote=True)
+
+    @app.exception_handler(AdministratorVerificationRequired)
+    async def verification_required(request, error):
+        return HTMLResponse("<h1>Administrator verification required</h1>"
+            "<p>This action was not performed. Administrator verification lasts five minutes.</p>"
+            "<p>Use Back to return to your form. In a second tab in the same browser, "
+            "open My account and verify your authenticator, then submit again. Do not sign out.</p>"
+            "<p><a href='/account' target='_blank' rel='noopener noreferrer'>My account — new tab</a></p>"
+            "<p>If fresh verification does not resolve this, ask the owner to check your administrator appointment.</p>",
+            status_code=403)
 
     def enabled():
         if not config.onboarding_enabled:
@@ -27,7 +42,7 @@ def register(app, config, engine, access, current, protected_form, lookup):
             with engine.begin() as c:
                 access._actor(c, row['token_hash'], int(access.clock()))
         except Denied:
-            raise HTTPException(403, 'An appointed administrator and recent MFA are required') from None
+            raise AdministratorVerificationRequired() from None
         return row
 
     @app.get('/admin/customers', response_class=HTMLResponse)
@@ -41,6 +56,9 @@ def register(app, config, engine, access, current, protected_form, lookup):
         output = ("<h1>Customer onboarding — Staging</h1><p>Use synthetic organisations for validation. "
             "No patient records belong here. A second administrator must approve each request. "
             "Grant approval does not issue a software licence.</p>"
+            "<p>Administrator verification lasts five minutes. If you need more time, "
+            "<a href='/account' target='_blank' rel='noopener noreferrer'>verify your authenticator in a second tab</a> "
+            "before submitting. Keep this form open and do not sign out.</p>"
             "<form method='post' action='/admin/customers/propose'>"
             "<input type='hidden' name='csrf' value='" + row['csrf'] + "'>"
             "<input type='hidden' name='request_id' value='" + secrets.token_hex(16) + "'>")

@@ -76,14 +76,18 @@ class Downloads:
             if not tenant or not tenant['active'] or not member: raise Denied('Download access denied')
             dt=lambda value:datetime.fromtimestamp(value,timezone.utc)
             def decision():
+                checked_at=self.access.clock()
+                fresh_evidence=bool(evidence and evidence["provider_reference"].strip()
+                    and evidence["verified_at"] <= checked_at < evidence["expires"]
+                    and evidence["verified_at"] > checked_at-300)
                 return authorize_download(enabled=self.enabled,trusted_issuer='https://api.workos.com',
                     principal=Principal('https://api.workos.com',session['subject'],True,dt(session['expires']),
-                        Role.ADMIN if staff else Role.CUSTOMER,bool(evidence and evidence['provider_reference'].strip())),
+                        Role.ADMIN if staff else Role.CUSTOMER,fresh_evidence),
                     membership=Membership('https://api.workos.com',session['subject'],member['tenant_id'],member['active']),
                     grant=Grant(g['id'],g['tenant_id'],g['release_id'],g['state'],dt(g['starts']),dt(g['expires']),
                                 g['approval_reference'],g['contract_reference']),
                     requested_tenant=g['tenant_id'],requested_release=g['release_id'],
-                    now=dt(self.access.clock()),release_withdrawn=not self.release_approved)
+                    now=dt(checked_at),release_withdrawn=not self.release_approved)
             decision()  # Reject before touching R2.
             count=c.scalar(select(func.count()).select_from(events).where(events.c.event=='download_link_issued',
                 events.c.actor==session['subject'],events.c.grant_id==grant_id,events.c.created>now-900))

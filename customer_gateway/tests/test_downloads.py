@@ -91,6 +91,14 @@ class DownloadTests(unittest.TestCase):
         with self.assertRaises(Denied): self.issue()
         self.assertEqual(len(self.signer.calls),0)
 
+    def test_storage_delay_rechecks_admin_mfa(self):
+        with self.engine.begin() as c:
+            c.execute(insert(memberships).values(tenant_id="tenant_a",subject="user_a",active=True))
+        def delay(): self.now=10290
+        self.signer.check=delay
+        with self.assertRaises(Denied): self.issue("user_a")
+        self.assertEqual(len(self.signer.calls),0)
+
     def test_audit_failure_and_storage_failure_return_no_url(self):
         with patch.object(self.service,'_event',side_effect=RuntimeError('synthetic audit failure')):
             with self.assertRaises(RuntimeError): self.issue()

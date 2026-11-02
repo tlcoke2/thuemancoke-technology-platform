@@ -156,6 +156,16 @@ class OnboardingUITests(unittest.TestCase):
         self.client.cookies.set(SESSION_COOKIE,'user_a')
         self.assertNotIn('Synthetic &lt;Clinic&gt;',self.client.get('/customer?tenant=tenant_'+'a'*32).text)
 
+    def test_expired_verification_has_recovery_and_creates_nothing(self):
+        self.now=10300
+        response=self.client.post("/admin/customers/propose",data=self.form(),headers={"origin":self.config.origin})
+        self.assertEqual(response.status_code,403)
+        self.assertIn("This action was not performed",response.text)
+        self.assertIn("second tab",response.text)
+        self.assertEqual(response.headers["cache-control"],"no-store")
+        with self.engine.connect() as c:
+            self.assertEqual(c.scalar(select(func.count()).select_from(requests)),0)
+
     def test_csrf_and_disabled_feature(self):
         self.assertEqual(self.client.post('/admin/customers/propose',data=self.form()).status_code,403)
         config=Config(self.config.origin,'client_synthetic','sk_synthetic',True,True)

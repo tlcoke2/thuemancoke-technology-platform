@@ -80,7 +80,7 @@ short expiry; revocation stops new issuance, not an existing URL immediately.
 
 ## Evidence and known limits
 
-85 local tests pass. The inherited workflow runs the same suite against SQLite and
+90 local tests pass. The inherited workflow runs the same suite against SQLite and
 isolated PostgreSQL 18. Automated WorkOS/storage operations are mocked except local
 SDK signature generation; no private cloud object was fetched by these tests.
 The separate commercial_core policy from PR #36 is reused in download_policy.py
@@ -103,3 +103,17 @@ not completed by this candidate. The signed clinical master remains untouched.
 Disable onboarding and both download/release flags, then redeploy the previously
 reviewed gateway image/commit if necessary. Preserve the additive request table and
 all audit records for review; no destructive rollback is needed.
+
+## Read-only storage connection check
+
+After adding the separate bucket-scoped Object Read credentials privately in Railway,
+keep both download/release controls false and redeploy this candidate. In the gateway
+SSH shell run `python check_private_storage.py`. This performs only HEAD on the pinned
+release object and reports size/ETag agreement without printing credentials or signed
+URLs. It does not modify the database or cloud settings. An operator must separately
+confirm credential scope and disabled bucket public access. Do not replace the existing
+full-hash/signature evidence with this metadata check.
+
+Administrator forms now explain the five-minute verification window and provide a
+second-tab verification link. Expired onboarding submissions return an HTML recovery
+page with no write. Download issuance also rechecks MFA after the storage HEAD call.
