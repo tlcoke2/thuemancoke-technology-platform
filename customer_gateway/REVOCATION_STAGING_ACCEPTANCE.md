@@ -1,6 +1,6 @@
 # Gate B — Live staging customer entitlement revocation and isolation
 
-**Environment:** TCL customer gateway staging ONLY. **Status:** NOT YET RUN / NOT ATTESTED.
+**Environment:** TCL customer gateway staging ONLY. **Status:** Owner-reported staging UAT; complete HTTP/audit evidence not yet attested.
 
 This test does not authorise production downloads. It must use dedicated staging customer records, never real patients, CRM records or clinical databases. Do not touch the signed TEC EPR Clinic Edition 1.0.0 master archive, publisher private key or R2 object. The SHA-256/signature/full-archive binding acceptance (Gate A3) has already passed, separately.
 
@@ -36,3 +36,53 @@ Database grant revocation prevents **new URL issuance only**. It **does not inst
 Record the test date, Git commit, staging service/environment, synthetic grant reference, operator roles A/B/C/D (no private tokens), the key UTC timestamps, expected vs. observed HTTP statuses, audit event counts and resulting staging flag state. Save evidence to an appropriately restricted organisational location, not a public pull-request comment. The successful Gate A3 verification produced 442 manifest-file matches and 3 signing metadata matches, but that is not evidence that Gate B passed.
 
 **Pass criteria:** Every negative authorization check returns denied; only independently approved access issues a link; revocation stops new issuance; tenant isolation holds; existing link stops functioning after its own expiry; flags are restored. Any ambiguous result = **FAIL/PENDING**, not pass. PR #38 remains draft, commercial production approval remains separate.
+
+## Read-only evidence completion (new)
+
+The owner has shown a synthetic grant in `revoked` state and another in
+`approved` state, after reporting a successful staging test. This is useful
+but is not sufficient by itself to prove that a revoked grant can no longer
+issue new links or that a different customer was denied. Do **not** repeat
+writes merely to satisfy documentation; if a required earlier HTTP result
+was not recorded, label it `PENDING` and use a **fresh isolated synthetic
+grant** for a controlled retest.
+
+A **local, fail-closed report validator** is provided:
+`validate_revocation_evidence.py`. It makes **no network requests or DB
+changes**; it only checks the coherence of an operator's **redacted,
+manually recorded** results. It deliberately refuses unknown fields,
+URLs, email addresses and credential-looking keys. It is not an independent
+WorkOS, Railway or Cloudflare attestation and cannot turn a report into
+cryptographic proof.
+
+Create a **new private template** on the trusted workstation:
+
+```powershell
+cd C:\My_Applications\TCL-gateway-verification
+git pull --ff-only origin feature/gateway-entitlement-approvals
+python .\customer_gateway\validate_revocation_evidence.py --template "$env:USERPROFILE\Downloads\TCL-stage-B-evidence.json"
+```
+
+Then record the observed staging-only result values in the JSON file without
+including grant IDs, subject IDs, email addresses, token strings, cookies,
+R2 signed URLs, secrets or patient data. Use UTC `YYYY-MM-DDTHH:MM:SSZ`
+timestamps. An unknown observation must remain `null`; **never enter
+true or HTTP 403 just to make the validator pass**. Use the actual deployed
+Git commit in `git_commit`, not the latest development commit by assumption.
+Run:
+
+```powershell
+python .\customer_gateway\validate_revocation_evidence.py --file "$env:USERPROFILE\Downloads\TCL-stage-B-evidence.json"
+```
+
+A `PASS` only confirms that a **completed operator report** is internally
+consistent with the Gate B acceptance checklist. Retain a protected copy and
+perform independent security review before sign-off. A `PENDING/FAIL` does
+not undo the already verified release integrity or revoke customer access.
+
+**End-of-test hygiene:** The older synthetic `approved` entitlement shown
+in the review UI is not automatically cleaned up by this offline validator.
+An appointed administrator should deliberately revoke it after all approved
+staging tests, using the authenticated CSRF-protected gateway controls.
+Never manipulate the staging database or synthetic grants using a production
+clinical/CRM connection.
