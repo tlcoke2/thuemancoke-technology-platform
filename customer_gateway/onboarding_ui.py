@@ -5,6 +5,10 @@ from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 try:
+    from .ui import page as view
+except ImportError:
+    from ui import page as view
+try:
     from .onboarding import requests, Onboarding
     from .entitlements import grants, tenants, memberships, Denied
 except ImportError:
@@ -23,13 +27,16 @@ def register(app, config, engine, access, current, protected_form, lookup):
 
     @app.exception_handler(AdministratorVerificationRequired)
     async def verification_required(request, error):
-        return HTMLResponse("<h1>Administrator verification required</h1>"
-            "<p>This action was not performed. Administrator verification lasts five minutes.</p>"
-            "<p>Use Back to return to your form. In a second tab in the same browser, "
-            "open My account and verify your authenticator, then submit again. Do not sign out.</p>"
-            "<p><a href='/account' target='_blank' rel='noopener noreferrer'>My account — new tab</a></p>"
-            "<p>If fresh verification does not resolve this, ask the owner to check your administrator appointment.</p>",
-            status_code=403)
+        return HTMLResponse(view("Administrator verification required",
+            '<section class="card"><div class="notice warn">'
+            'This action was not performed. Administrator verification lasts five minutes.</div>'
+            '<p>Use Back to return to your form. In a second tab in the same browser, '
+            'open My account and verify your authenticator, then submit again. Do not sign out.</p>'
+            '<p><a class="button secondary" href="/account" target="_blank" '
+            'rel="noopener noreferrer">My account — new tab</a></p>'
+            '<p>If fresh verification does not resolve this, ask the owner to '
+            'check your administrator appointment.</p></section>',
+            eyebrow="SECURITY VERIFICATION"), status_code=403)
 
     def enabled():
         if not config.onboarding_enabled:
@@ -53,12 +60,14 @@ def register(app, config, engine, access, current, protected_form, lookup):
                 grants.c.expires, grants.c.contract_reference, grants.c.approval_reference)
                 .join(grants, grants.c.id == requests.c.id)
                 .order_by(requests.c.created.desc(), requests.c.id).limit(100)).mappings().all()
-        output = ("<h1>Customer onboarding — Staging</h1><p>Use synthetic organisations for validation. "
-            "No patient records belong here. A second administrator must approve each request. "
-            "Grant approval does not issue a software licence.</p>"
-            "<p>Administrator verification lasts five minutes. If you need more time, "
-            "<a href='/account' target='_blank' rel='noopener noreferrer'>verify your authenticator in a second tab</a> "
-            "before submitting. Keep this form open and do not sign out.</p>"
+        output = ("<section class='card'><h2>Propose customer access</h2>"
+            "<p>Use synthetic organisations for staging validation. "
+            "Do not enter patient information. A second appointed administrator must "
+            "independently approve each customer.</p>"
+            "<div class='notice warn'>Administrator verification lasts five minutes. "
+            "If necessary, <a href='/account' target='_blank' rel='noopener noreferrer'>"
+            "verify in a second tab</a> before submitting this form. Keep the form open "
+            "and do not sign out.</div>"
             "<form method='post' action='/admin/customers/propose'>"
             "<input type='hidden' name='csrf' value='" + row['csrf'] + "'>"
             "<input type='hidden' name='request_id' value='" + secrets.token_hex(16) + "'>")
@@ -71,11 +80,12 @@ def register(app, config, engine, access, current, protected_form, lookup):
             ('expires','Access expires (UTC)','datetime-local',32)):
             output += ("<p><label>"+label+" <input required name='"+name+"' type='"+kind
                        +"' maxlength='"+str(size)+"'></label></p>")
-        output += "<button>Submit for independent approval</button></form><h2>Recent customer requests</h2>"
+        output += ("<button>Submit for independent approval</button></form></section>"
+                   "<h2>Recent customer requests</h2>")
         if not records:
             output += '<p>No customer requests submitted.</p>'
         for r in records:
-            output += '<section><h3>'+esc(r['organisation'])+'</h3><dl>'
+            output += '<section class="card"><h3>'+esc(r['organisation'])+'</h3><dl>'
             for key in ('id','subject','email','state','proposer','contract_reference','approval_reference','starts','expires'):
                 value = datetime.fromtimestamp(r[key], timezone.utc).strftime('%d %b %Y %H:%M UTC') if key in ('starts','expires') else r[key]
                 output += '<dt>'+esc(key.replace('_',' ').title())+'</dt><dd>'+esc(value)+'</dd>'
@@ -87,7 +97,11 @@ def register(app, config, engine, access, current, protected_form, lookup):
                 output += ("<form method='post' action='/admin/grants/"+esc(r['id'])+"/revoke'>"
                     "<input type='hidden' name='csrf' value='"+row['csrf']+"'><button>Revoke request or grant</button></form>")
             output += '</section>'
-        return output+"<p><a href='/admin'>Approval dashboard</a> · <a href='/account'>My account</a></p>"
+        return view("Customer onboarding and review",
+            output + '<div class="actions"><a class="button secondary" href="/admin">Approval dashboard</a>'
+                     '<a class="button secondary" href="/account">My account</a></div>',
+            eyebrow="ADMINISTRATOR WORKSPACE",
+            intro="Propose secure access, review pending requests and manage entitlements with independent approval.")
 
     @app.post('/admin/customers/propose')
     async def propose(request: Request):
@@ -131,21 +145,44 @@ def register(app, config, engine, access, current, protected_form, lookup):
                     .outerjoin(requests,requests.c.id==grants.c.id))
                 .where(memberships.c.subject==row['subject'],memberships.c.active.is_(True),tenants.c.active.is_(True))
                 .order_by(grants.c.id).limit(100)).mappings().all()
-        output='<h1>My customer access — Staging</h1>'
+        output = '<div class="grid">'
         if not records:
-            output+='<p>No approved customer membership is available for your account.</p>'
+            output += ('<section class="card"><span class="stat pending">Awaiting approval</span>'
+                '<h2>No active customer entitlements</h2>'
+                '<p>No approved customer membership is available for your account. '
+                'If you are expecting access, contact the TCL administrator managing your organisation.</p>'
+                '</section>')
         for r in records:
-            output+='<section><h2>'+esc(r['organisation'] or 'Customer organisation')+'</h2>'
-            now=int(access.clock())
+            now = int(access.clock())
             status = r['state']
-            if status=='approved':
-                status='scheduled' if now < r['starts'] else ('expired' if now >= r['expires'] else 'approved')
-            output+='<p>Grant: '+esc(r['id'])+' — '+esc(status)+'</p>'
-            if status=='approved' and config.downloads_enabled and config.release_approved:
-                output+=("<form method='post' action='/api/downloads'><input type='hidden' name='csrf' value='"
-                    +row['csrf']+"'><input type='hidden' name='grant_id' value='"+esc(r['id'])
-                    +"'><button>Request private download</button></form>")
-            output+='</section>'
-        return output+("<p>No software licence has been issued.</p>" if config.downloads_enabled and config.release_approved else "<p>Download issuance remains disabled. No software licence has been issued.</p>")+"<a href='/account'>My account</a>"
+            if status == 'approved':
+                status = 'scheduled' if now < r['starts'] else ('expired' if now >= r['expires'] else 'approved')
+            badge = 'stat' if status == 'approved' else 'stat pending' if status in ('pending','scheduled') else 'stat revoked'
+            output += ('<section class="card"><span class="' + badge + '">'
+                + esc(status.title()) + '</span><h2>'
+                + esc(r['organisation'] or 'Customer organisation') + '</h2>'
+                '<span class="kicker">TEC EPR CLINIC EDITION 1.0.0</span>'
+                '<p class="fine">Grant reference</p><code class="code">'
+                + esc(r['id']) + '</code>')
+            if status == 'approved' and config.downloads_enabled and config.release_approved:
+                output += ("<p>Your approved release is available through a short-lived "
+                    "private download link.</p><form method='post' action='/api/downloads'>"
+                    "<input type='hidden' name='csrf' value='" + esc(row['csrf'])
+                    + "'><input type='hidden' name='grant_id' value='" + esc(r['id'])
+                    + "'><button>Request secure download</button></form>")
+            else:
+                output += ('<p class="notice warn">A private download is unavailable for '
+                    'this entitlement or is currently disabled.</p>')
+            output += '</section>'
+        output += '</div>'
+        output += ('<section class="card"><h2>Release and licence information</h2>'
+            '<p>Downloading an archive does not activate or issue a licence. '
+            'Your release is subject to approved access and separate licensing.</p>')
+        if not (config.downloads_enabled and config.release_approved):
+            output += '<p class="notice">Private download issuance is currently disabled.</p>'
+        output += '<a class="button secondary" href="/account">My account</a></section>'
+        return view("My customer access", output,
+            eyebrow="YOUR SOFTWARE ENTITLEMENTS",
+            intro="Review your approved release access and request authorised private downloads.")
 
     return service
