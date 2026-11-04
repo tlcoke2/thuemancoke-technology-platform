@@ -118,6 +118,63 @@ signing. Never overwrite or relabel the original signed 1.0.0.
 - A separate production database, provider credentials, HTTPS domain,
   backup procedure and rollback decision are mandatory.
 
+## Staging release controls: independently disabled — owner-confirmed PASS
+
+On 4 November 2026, the owner executed the Windows-safe, read-only Railway
+variable check using piped CLI JSON. The exact results were:
+
+~~~text
+GATEWAY_DOWNLOADS_ENABLED: DISABLED
+GATEWAY_RELEASE_APPROVED: DISABLED
+PASS: Both Railway staging customer gateway download switches are explicitly disabled.
+LIMITATION: Railway config state and public runtime readiness are separate checks.
+~~~
+
+The earlier public `/health` + `/ready` staging preflight also passed after
+the owner set these switches false. **Staging lockdown is accepted as verified
+by the operator at both configuration and public-runtime levels.** The
+WorkOS/R2 independent tests remain recorded as signed off by the owner. Do
+not repeat either test merely to correct evidence formatting. Production
+licensing, production identity, signed release source and commercial
+activation remain distinct controls.
+
+## Inspect the immutable signed EPR package for known licence bypasses
+
+The EPR backend repository's current `main` includes an unrestricted
+customer Admin module-license bypass and an environment-wide
+`LICENSE_DISABLE=1` bypass. Fixes were prepared in separate draft TEC
+backend PR #20, but **current GitHub main is not proof of the contents of the
+previously signed Clinic Edition 1.0.0 archive**. An extra read-only tool
+inspects that exact, pinned archive and its packaged middleware after
+re-verifying the full release's RSA-signed manifest and all 442 payload
+members, and never extracts or executes code.
+
+From the owner-controlled Windows workstation:
+
+~~~powershell
+cd C:\My_Applications\TCL-gateway-verification
+git pull --ff-only origin feature/gateway-entitlement-approvals
+
+python .\customer_gateway\audit_signed_release_license_policy.py `
+    --release-dir "C:\My_Applications\TEC-EPR-Commercial-Releases\TEC-EPR-Clinic-Edition-1.0.0-SIGNED-1d7024f7955a" `
+    --public-key "C:\My_Applications\TEC-EPR-Publisher-Trust\publisher-public-1.0.0.pem" `
+    --archive "C:\My_Applications\TEC-EPR-Commercial-Releases\TEC-EPR-Clinic-Edition-1.0.0-1d7024f7955a.tar.gz"
+~~~
+
+If the archive has a single packaging wrapper, the existing
+`verify_release_payload.py` instructions explain the explicit
+`--archive-prefix` option. Never guess that prefix. The script only
+inspects exact relative `backend/src/middleware/checkLicense.js` paths,
+or that path beneath one wrapper, and does not print source contents. It
+checks the two **known** bypass signatures, not every possible security flaw.
+It blocks distribution if either known bypass is detected; if source is only
+inside `images.tar`, it returns **INCONCLUSIVE**, and requires a separate
+container image/source audit before commercial release.
+
+The original signed 1.0.0 archive must never be overwritten. If affected,
+approve and publish a *new* immutable separately signed version following
+installer regression, clinical acceptance and TEC Medical Director sign-off.
+
 ## Approved next technical work (source-only)
 
 - Windows-safe staging variable verification using the fixed piped JSON
