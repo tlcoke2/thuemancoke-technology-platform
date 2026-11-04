@@ -175,6 +175,51 @@ The original signed 1.0.0 archive must never be overwritten. If affected,
 approve and publish a *new* immutable separately signed version following
 installer regression, clinical acceptance and TEC Medical Director sign-off.
 
+## Verified 1.0.0 commercial hold — 4 November 2026
+
+**BLOCKED FOR EXTERNAL CUSTOMER DISTRIBUTION.** The owner executed the
+read-only archive audit against the exact pinned, signed 1.0.0 distribution.
+It successfully verified the release archive hash/byte count, publisher RSA
+signature and all signed payload members. The packaged source
+`backend/src/middleware/checkLicense.js` was located and inspected; the
+auditor detected **both** known commercial bypass patterns:
+
+~~~text
+admin_bypass_signature: DETECTED
+global_env_bypass_signature: DETECTED
+BLOCK: A known commercial licence bypass pattern exists in signed package source.
+~~~
+
+This closes the previous uncertainty about the **signed package's exposed
+source**, although Docker image runtime/source equivalence still needs
+separate inspection. It does not suggest tampering or a system intrusion:
+the file is publisher-signed but the licensing policy is unsuitable for
+external customer subscriptions. Clinical approval and a valid digital
+signature do not themselves establish commercial licensing enforcement.
+
+**Engineering containment prepared on draft PR #38:** the actual gateway
+entry point `from_environment()` now refuses to start a staging service if
+**either** release issuance flag is enabled while 1.0.0 remains the pinned
+candidate. This is a hard, code-level security hold, in addition to the
+owner's confirmed disabled flags, and includes synthetic negative tests.
+This source-level protection **is not yet deployed** to the currently running
+Railway service. Do not turn staging switches on or treat the public runtime
+as having this new protection until a separately authorised staging rollout.
+
+**Remediation track:** draft
+[TEC backend security PR #20](https://github.com/tlcoke2/tec_epr_backend/pull/20)
+and
+[TEC backend release issue #21](https://github.com/tlcoke2/tec_epr_backend/issues/21).
+Prepare a **separately versioned, newly signed** Clinic Edition 1.0.1
+candidate after source/installer/clinical/security testing and TEC Medical
+Director reapproval. Leave v1.0.0 binary, hashes, publisher signature and
+private R2 object untouched; do not publish a presigned download link for it.
+
+**Gate C disposition:** NO-GO on 1.0.0. A separate 1.0.1 go/no-go can
+occur only after new release provenance, EPR licence lifecycle acceptance,
+production gateway segregation, commercial contracts, rollback and final
+owner approval.
+
 ## Approved next technical work (source-only)
 
 - Windows-safe staging variable verification using the fixed piped JSON
