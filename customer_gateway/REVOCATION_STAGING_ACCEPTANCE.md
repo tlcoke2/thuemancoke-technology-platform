@@ -97,3 +97,45 @@ An appointed administrator should deliberately revoke it after all approved
 staging tests, using the authenticated CSRF-protected gateway controls.
 Never manipulate the staging database or synthetic grants using a production
 clinical/CRM connection.
+
+## Evidence JSON read-error recovery (read-only first)
+
+On 4 November 2026, the owner reported that both `--progress` and `--file`
+returned the same generic `Cannot read valid, small evidence JSON` error.
+This does **not** indicate a failed revocation test. It means the local file
+could not be loaded (missing path, inaccessible/empty/oversized file, invalid
+encoding or malformed JSON). A more specific, **redacted error message**
+is now emitted by `validate_revocation_evidence.py`; UTF-8 with or without
+Windows Notepad's UTF-8 BOM is accepted.
+
+Use PowerShell locally without printing file contents:
+
+```powershell
+cd C:\My_Applications\TCL-gateway-verification
+git pull --ff-only origin feature/gateway-entitlement-approvals
+$evidence = Join-Path $env:USERPROFILE 'Downloads\TCL-stage-B-evidence.json'
+Test-Path -LiteralPath $evidence -PathType Leaf
+if (Test-Path -LiteralPath $evidence -PathType Leaf) {
+  Get-Item -LiteralPath $evidence | Select-Object Name,Length,LastWriteTime
+}
+python .\customer_gateway\validate_revocation_evidence.py --progress "$evidence"
+```
+
+The improved error identifies a missing file, empty file, oversized file,
+encoding error, or **JSON error line and column**; it never includes document
+values. If the JSON has a trailing comma, missing quotation mark, unsupported
+PowerShell/Notepad text, or other syntax defect, repair the **local copy**
+using the indicated line/column, preserving the original before editing.
+JSON uses double-quoted property names, `null` / `true` / `false`, and
+**no comments or trailing commas**.
+
+If the original is lost, empty or irreparable, generate a distinct new file
+without overwriting any existing evidence:
+
+```powershell
+python .\customer_gateway\validate_revocation_evidence.py --template "$env:USERPROFILE\Downloads\TCL-stage-B-evidence-recovery.json"
+```
+
+The replacement is a **blank** report, not proof of testing. Enter only
+actually observed outcomes; otherwise leave fields as `null`. Do not paste
+the private JSON document into chat, public GitHub issues or PR comments.
