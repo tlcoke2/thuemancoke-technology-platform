@@ -13,6 +13,30 @@ export default defineConfig(({ mode }) => {
   if (mode === 'staging' && api.hostname === 'api.thuemancokelimited.com') {
     throw new Error('Staging must not use production software intake');
   }
+  // A customer link is independent of software enquiries and is disabled until
+  // gateway production acceptance. Never publish the staging host from a
+  // production GitHub Pages build.
+  const customerGatewayEnabled = env.VITE_CUSTOMER_GATEWAY_PUBLIC_ENABLED === 'true';
+  let customerGatewayOrigin = null;
+  if (customerGatewayEnabled) {
+    const configuredGateway = env.VITE_CUSTOMER_GATEWAY_ORIGIN;
+    if (!configuredGateway) {
+      throw new Error('Customer portal enabled without an HTTPS gateway origin');
+    }
+    const gateway = new URL(configuredGateway);
+    if (gateway.protocol !== 'https:' || gateway.username || gateway.password ||
+        gateway.pathname !== '/' || gateway.search || gateway.hash || gateway.port) {
+      throw new Error('Customer gateway origin must be an exact HTTPS origin');
+    }
+    if (mode !== 'staging' && (
+      !gateway.hostname.endsWith('.thuemancokelimited.com') ||
+      ['www.thuemancokelimited.com','api.thuemancokelimited.com'].includes(gateway.hostname) ||
+      gateway.hostname.includes('staging')
+    )) {
+      throw new Error('Public customer portal may link only to an approved TCL production gateway hostname');
+    }
+    customerGatewayOrigin = gateway.origin;
+  }
   return {
   // Isolate the existing contact form as well as software/CRM pages in staging.
   define: mode === 'staging' ? { 'import.meta.env.VITE_API_URL': JSON.stringify(api.origin) } : {},
@@ -26,7 +50,7 @@ export default defineConfig(({ mode }) => {
         }
       }
       this.emitFile({ type: 'asset', fileName: 'software-config.js',
-        source: `window.TCL_SOFTWARE_API = ${JSON.stringify(api.origin)};\n` });
+        source: `window.TCL_SOFTWARE_API = ${JSON.stringify(api.origin)};\nwindow.TCL_CUSTOMER_GATEWAY = ${JSON.stringify({enabled:customerGatewayEnabled,origin:customerGatewayOrigin})};\n` });
     },
   }],
   base: "./",
