@@ -23,6 +23,14 @@ GitHub Pages production builds use Vite's `software-config.js` generated asset. 
 | `VITE_CUSTOMER_GATEWAY_PUBLIC_ENABLED` | `false` | When `true`, show the authenticated gateway login CTA. |
 | `VITE_CUSTOMER_GATEWAY_ORIGIN` | absent | HTTPS **origin only**, not a path. Recommended: `https://customers.thuemancokelimited.com` once fully configured. |
 
+The GitHub Pages workflow now explicitly exports both build variables from
+**Settings → Secrets and variables → Actions → Variables** when the approved
+production cutover is authorised. Do not create a secret containing the gateway
+session or token: the two new values are *public build settings*, not credentials.
+The production website deliberately stays disabled if the variables are absent.
+A GitHub Pages workflow run on `main` is the only deployment mechanism; PR
+builds are validation only.
+
 The **disabled/default** page displays production access pending review and offers the existing software enquiry form instead. The website does not disclose the isolated Railway staging gateway URL. A production build fails if the portal link is enabled without an origin, or if the origin is not an approved `*.thuemancokelimited.com` hostname; staging hosts, basic-auth URL credentials, ports, paths and queries are rejected. The gateway itself also independently enforces access; link visibility is not an authorisation boundary.
 
 **Commercial activation checklist:** 
