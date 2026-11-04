@@ -61,6 +61,7 @@ function Navbar() {
   const links = [
     ["Services", "#services"],
     ["Enterprise Software", "./software.html"],
+    ["Customer Portal", "./customer-portal.html"],
     ["Expertise", "#expertise"],
     ["About", "#about"],
     ["Approach", "#approach"],
