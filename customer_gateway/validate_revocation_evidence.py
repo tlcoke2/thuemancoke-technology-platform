@@ -222,11 +222,36 @@ def main(argv=None):
         return 0
     report_path = args.file if args.file is not None else args.progress
     try:
-        if report_path.stat().st_size > 24_000:
-            raise ValueError("Evidence file too large")
-        report = json.loads(report_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, UnicodeError):
-        print("ERROR: Cannot read valid, small evidence JSON")
+        size = report_path.stat().st_size
+        if size == 0:
+            print("ERROR: Evidence file is empty. Preserve the original and inspect it in Notepad.")
+            return 2
+        if size > 24_000:
+            print("ERROR: Evidence JSON exceeds the 24,000-byte safety limit.")
+            return 2
+        # Windows Notepad can write UTF-8 with a BOM; utf-8-sig handles
+        # both forms without changing the user's evidence file.
+        report = json.loads(report_path.read_text(encoding="utf-8-sig"))
+    except FileNotFoundError:
+        print("ERROR: Evidence file not found at the supplied path.")
+        return 2
+    except PermissionError:
+        print("ERROR: Evidence file cannot be read (access denied).")
+        return 2
+    except IsADirectoryError:
+        print("ERROR: Expected an evidence JSON file, not a directory.")
+        return 2
+    except UnicodeError:
+        print("ERROR: Evidence file is not valid UTF-8 JSON. Save a separate UTF-8 copy, preserving the original.")
+        return 2
+    except json.JSONDecodeError as error:
+        # Print only location, never JSON fragments that could contain secrets.
+        print("ERROR: Invalid JSON syntax at line " + str(error.lineno)
+              + ", column " + str(error.colno)
+              + ". Check commas, quotes and brackets; do not paste confidential content.")
+        return 2
+    except OSError:
+        print("ERROR: Evidence file is inaccessible or unreadable.")
         return 2
     if args.progress is not None:
         for line in progress(report):
