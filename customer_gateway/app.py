@@ -339,7 +339,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             '<p class="muted">Signing out ends this gateway session; '
             'it does not end your identity-provider single sign-on session.</p></div>'
             '<form action="/auth/logout" method="post">'
-            '<input type="hidden" name="csrf" value="' + html.escape(row["csrf"], quote=True) + '">'
+            "<input type='hidden' name='csrf' value='" + html.escape(row["csrf"], quote=True) + "'>"
             '<button class="secondary">Sign out securely</button></form></div></section>'
         )
         return view("Welcome to your account", body,
