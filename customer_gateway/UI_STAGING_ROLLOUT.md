@@ -15,7 +15,9 @@ WorkOS PKCE flow, permissions, memberships, licence rules, or signed installer.
   `/account` is a signed-in dashboard; `/customer` lists approved access only.
 - `POST /auth/logout` still enforces origin + CSRF and atomically revokes the
   local session with an audit. It now redirects (303) to `/signed-out`, which
-  explains that the WorkOS SSO session may remain active. A direct GET
+  explains that the WorkOS SSO session may remain active. Browsers with
+  an active local session are redirected away from the signed-out page.
+  A direct GET
   `/auth/logout` presents a non-mutating confirmation form for convenience.
 - User-facing 400/401/403/404/405/413/415/422/503 errors now render a safe
   HTML recovery view, with the HTTP status preserved. Unexpected server
