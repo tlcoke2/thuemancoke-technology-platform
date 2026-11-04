@@ -128,7 +128,7 @@ class RevocationEvidenceTests(unittest.TestCase):
                 (b'', "Evidence file is empty"),
                 (b'{"staging":true,}', "Invalid JSON syntax at line 1"),
                 (b'{"secret":"should-not-appear",}', "Invalid JSON syntax at line 1"),
-                (b'\\xff\\xfe{\\x00}', "not valid UTF-8 JSON"),
+                (b'\xff\xfe{\x00', "not valid UTF-8 JSON"),
                 (b'x'*24001, "24,000-byte safety limit"),
             )
             for content, expected in cases:
@@ -148,7 +148,7 @@ class RevocationEvidenceTests(unittest.TestCase):
     def test_utf8_bom_from_windows_notepad_is_accepted_without_mutation(self):
         with TemporaryDirectory() as temp:
             source=Path(temp)/'report.json'
-            source.write_bytes(b'\\xef\\xbb\\xbf'+json.dumps(self.valid()).encode('utf-8'))
+            source.write_bytes(b'\xef\xbb\xbf'+json.dumps(self.valid()).encode('utf-8'))
             before=source.read_bytes()
             capture=StringIO()
             with redirect_stdout(capture):
