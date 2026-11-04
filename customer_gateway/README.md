@@ -1,5 +1,21 @@
 # TCL customer gateway — staging candidate
 
+> **COMMERCIAL SECURITY HOLD (4 November 2026).** A read-only, authenticated
+> verification of the **actual signed TEC EPR Clinic Edition 1.0.0 archive**
+> detected the two known licensing-bypass patterns in its packaged backend
+> middleware (customer Admin and `LICENSE_DISABLE=1`). The valid signature
+> establishes file integrity, **not acceptable subscription enforcement**.
+> **Do not distribute or generate private R2 links for 1.0.0.** The owner has
+> confirmed both staging release controls are disabled. This branch now includes
+> a source-only fail-closed guard in `from_environment()` preventing either
+> control being enabled while 1.0.0 remains pinned. The new guard has **not**
+> been deployed to the live Railway service; the deployed service continues to
+> rely on the verified disabled variables. See
+> [FINAL_COMMERCIAL_RELEASE_CONTROL.md](FINAL_COMMERCIAL_RELEASE_CONTROL.md)
+> and draft TEC EPR backend security PR #20 / release issue #21 for a proposed,
+> separately signed 1.0.1 remediation. Production remains prohibited.
+
+
 This isolated staging-only service supports WorkOS AuthKit sign-in, appointed
 administrators with MFA, two-person entitlement review, customer onboarding and
 conditionally gated private R2 release links. It is **not production-authorised**,
