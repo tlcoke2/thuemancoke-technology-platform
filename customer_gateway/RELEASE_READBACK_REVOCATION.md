@@ -65,3 +65,48 @@ and a controlled customer with active membership signs in.
 **Current status:** implementation of the offline read-back verifier and synthetic
 revocation regression is available on draft PR #38. Neither a full live file
 read-back nor live revocation acceptance is attested by the source changes alone.
+
+## Gate A2 — Verify publisher-signed manifest (read-only)
+
+The operator has identified `manifest.json`, `manifest.sig` (685 encoded bytes)
+and `manifest.signer.json` for the untouched 1.0.0 signed release. Reported
+signer metadata: `kind=TEC EPR clinical distribution release manifest`,
+`algorithm=RSA-SHA256`, `releaseVersion=1.0.0`, and the previously recorded
+publisher SPKI SHA-256
+`6bd4d0bbe4f81fea83ab61875eca6a96c7f9310e765c3cbe89c05b7a28a0a733`.
+The operator found a `public.pem` **inside an encrypted off-host restore
+folder**. That is **not automatically the release signing public key**; it
+may belong to a different backup/restore identity. Do not trust it on name alone.
+
+A new offline script `customer_gateway/verify_release_manifest.py` checks:
+
+1. Trusted, code-pinned publisher SPKI SHA-256 matches signer metadata.
+2. The candidate key imports as a public key and its DER SubjectPublicKeyInfo
+   SHA-256 matches the trusted pinned fingerprint. Mismatch **fails closed**.
+3. Base64-encoded RSA-4096 detached signature is exactly 512 decoded bytes.
+4. OpenSSL verifies RSA-SHA256 PKCS#1 v1.5 over **the exact bytes** of a
+   temporary, read-only snapshot of `manifest.json`.
+
+Run locally **only after checking the public-key provenance** (no private key
+input is needed):
+
+```powershell
+cd C:\My_Applications\TCL-gateway-verification
+git pull --ff-only origin feature/gateway-entitlement-approvals
+python .\customer_gateway\verify_release_manifest.py `
+  --release-dir "C:\My_Applications\TEC-EPR-Commercial-Releases\TEC-EPR-Clinic-Edition-1.0.0-SIGNED-1d7024f7955a" `
+  --public-key "C:\My_Applications\TEC-EPR-Release-Assurance-1.0.0\encrypted-offhost-restore\public.pem"
+```
+
+If that is a backup/restore key, a `PUBLIC KEY MISMATCH` result is expected,
+**not a signature verification PASS**. Find the authentic **release publisher
+public key** through the protected signing procedure, and rerun using its path.
+Do not move, upload or disclose the publisher private key.
+
+The script does not modify the signed master, manifest or clinical databases;
+synthetic tamper/mismatched-key tests are in `test_verify_release_manifest.py`.
+Even a successful manifest signature check does **not** automatically establish
+that the signed manifest semantically binds to the R2 archive. Inspect the
+manifest's release object/path/hash/byte-count claims and cross-check the
+already verified downloaded 329,965,422-byte archive separately. No production
+sign-off can be inferred from this individual signature check.
