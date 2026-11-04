@@ -10,6 +10,7 @@ from urllib.parse import urlencode, urlsplit
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine, delete, insert, select
@@ -125,6 +126,15 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         if error.headers:
             response.headers.update(error.headers)
         return response
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(request: Request, error: RequestValidationError):
+        # Do not show framework validation JSON or echo submitted values.
+        return HTMLResponse(message_page("Please check your information",
+            "Some submitted information is invalid. Return to the portal "
+            "and review your details before trying again.",
+            action="/account", action_label="Return to account"),
+            status_code=422)
 
     @app.exception_handler(Exception)
     async def unexpected_error(request: Request, error: Exception):
