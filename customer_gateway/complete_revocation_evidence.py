@@ -170,9 +170,9 @@ def main(argv=None, ask=input, say=print):
         for group in ("timestamps_utc","http_statuses","audit_counts","checks"):
             if not isinstance(report.get(group), dict) or set(report[group]) != set(TEMPLATE[group]):
                 raise ValueError("Unexpected evidence group layout; original preserved")
-        complete(report, ask=ask, say=say)
         if args.output.exists():
             raise FileExistsError("Output already exists; choose a new name")
+        complete(report, ask=ask, say=say)
         with args.output.open("x", encoding="utf-8") as out:
             json.dump(report, out, indent=2)
             out.write("\n")
