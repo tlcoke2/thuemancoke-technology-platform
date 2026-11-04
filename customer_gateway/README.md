@@ -73,10 +73,21 @@ local evidence JSON remains on the operator workstation. GitHub CI runs on
 SQLite and isolated PostgreSQL 18. These integrity checks do **not** validate
 a commercial licence or live entitlement revocation.
 
-**Next acceptance:** live synthetic staging grant revocation, cross-tenant
-denial, and previously minted R2 signed GET URL expiry. See
-[REVOCATION_STAGING_ACCEPTANCE.md](REVOCATION_STAGING_ACCEPTANCE.md).
-Do not mistake mocked tests for proof of live provider/R2 behaviour.
+**Gate B operator validation (4 Nov 2026): PASS, owner-reported.** The operator
+individually confirmed all 15 checks, supplied 4 correctly formatted UTC
+timestamps, 8 expected numeric HTTP responses and 3 audit-event counts. A
+Railway CLI deployment UUID plus UTC creation timestamp identified the staged
+release when no Git SHA was available. The local evidence consistency validator
+returned PASS; no sensitive evidence file was uploaded to GitHub. See
+[REVOCATION_STAGING_ACCEPTANCE.md](REVOCATION_STAGING_ACCEPTANCE.md) and
+[RAILWAY_DEPLOYMENT_PROVENANCE.md](RAILWAY_DEPLOYMENT_PROVENANCE.md).
+
+**Next acceptance: independent security review is PENDING.** A local operator
+attestation does not establish live provider-level assurance. Review actual
+WorkOS/Railway/R2 records, revocation/isolation, signed-link expiry, session
+invalidation, credential scopes and residual-risk policy. See
+[INDEPENDENT_SECURITY_REVIEW.md](INDEPENDENT_SECURITY_REVIEW.md).
+The release is **not production authorised**.
 
 Provider session revocation/webhooks, session refresh, idle limits, rate limits,
 abuse quotas, protected audit retention/export, dependency review, verified R2
