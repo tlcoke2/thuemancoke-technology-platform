@@ -157,6 +157,44 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(r.status_code, 303)
         self.assertEqual(self.count(sessions), 0)
 
+    def test_branded_home_css_html_errors_and_machine_probes(self):
+        home = self.client.get("/")
+        self.assertEqual(home.status_code, 200)
+        self.assertIn('<!doctype html>', home.text)
+        self.assertIn('Thueman Coke Limited', home.text)
+        self.assertIn('/assets/gateway.css', home.text)
+        self.assertIn('noindex', home.text)
+        css = self.client.get("/assets/gateway.css")
+        self.assertEqual(css.status_code, 200)
+        self.assertIn('text/css', css.headers['content-type'])
+        self.assertIn('style-src \'self\'', css.headers['content-security-policy'])
+        self.assertIn('@media(max-width:720px)', css.text)
+        for path, status in (("/account",401),("/does-not-exist",404),("/auth/logout",405)):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code,status)
+                self.assertIn('text/html',response.headers['content-type'])
+                self.assertIn('<!doctype html>',response.text)
+                self.assertNotIn('{"detail":',response.text)
+        self.assertTrue(self.client.get("/health").json()["ok"])
+        self.assertTrue(self.client.get("/ready").json()["ready"])
+
+    def test_logout_redirects_to_a_signed_out_landing_page(self):
+        self.finish(self.start())
+        account = self.client.get("/account")
+        self.assertIn('Welcome to your account', account.text)
+        token = re.search("name='csrf' value='([^']+)'", account.text)[1]
+        result = self.client.post("/auth/logout", data={"csrf":token},
+                                  headers={"origin": self.config.origin})
+        self.assertEqual(result.status_code,303)
+        self.assertEqual(result.headers['location'],'/signed-out')
+        landing = self.client.get(result.headers['location'])
+        self.assertEqual(landing.status_code,200)
+        self.assertIn('You have signed out', landing.text)
+        self.assertIn('single sign-on session may remain active', landing.text)
+        self.assertIn('<!doctype html>', landing.text)
+        self.assertEqual(self.count(sessions),0)
+
     def test_no_open_redirect_or_public_docs(self):
         state = self.start()
         r = self.client.get("/auth/callback", params={"state":state,"code":"code","next":"https://attacker.example"})
