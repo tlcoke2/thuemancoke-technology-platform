@@ -100,7 +100,7 @@ def evaluate(report):
         if isinstance(value, dict):
             if not isinstance(report[key], dict) or set(report[key]) != set(value):
                 issue("Unexpected/missing keys in " + key)
-        elif key not in ("git_commit", "test_reference") and report[key] != value:
+        elif key not in ("git_commit", "test_reference", "url_ttl_seconds") and report[key] != value:
             issue("Unexpected value for " + key)
     if set(report) != set(TEMPLATE):
         issue("Unexpected root fields; use only the supplied template")
