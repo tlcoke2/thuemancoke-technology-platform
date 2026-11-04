@@ -381,8 +381,8 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         qr_html = ("<img width='256' height='256' alt='Authenticator setup QR code' src='"
                    + html.escape(qr, quote=True) + "'>") if qr else ""
         return view("Set up your authenticator", '<section class="card">'
-            '<p>Add an account in your authenticator app. "
-            "Scan this QR code, or enter the setup key manually as a time-based account.</p>"
+            '<p>Add an account in your authenticator app. '
+            'Scan this QR code, or enter the setup key manually as a time-based account.</p>'
             + qr_html + "<p>Account: TCL Customer Gateway</p><p>Setup key: <code>"
             + html.escape(key) + "</code></p><p>Keep this page private. Add the account before "
             "leaving this page; the setup key will not be shown again.</p>"
@@ -410,8 +410,8 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         row = current(request)
         mfa_ready()
         return view("Verify your authenticator", '<section class="card">'
-                '<p>Enter the current six-digit code. "
-                "This verifies your session; it does not grant administrator or download access.</p>"
+                '<p>Enter the current six-digit code. '
+                'This verifies your session; it does not grant administrator or download access.</p>'
                 "<form action='/auth/mfa/verify' method='post'><input type='hidden' name='csrf' value='"
                 + row['csrf'] + "'><label>Authenticator code <input name='code' inputmode='numeric' "
                 "autocomplete='one-time-code' pattern='[0-9]{6}' maxlength='6' required></label>"
