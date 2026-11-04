@@ -614,6 +614,18 @@ def from_environment():
                     os.environ.get("GATEWAY_ONBOARDING_ENABLED") == "true",
                     os.environ.get("GATEWAY_DOWNLOADS_ENABLED") == "true",
                     os.environ.get("GATEWAY_RELEASE_APPROVED") == "true")
+    # Commercial security hold (04 Nov 2026): an authenticated inspection of
+    # the immutable, publisher-signed TEC EPR Clinic Edition 1.0.0 package
+    # confirmed both customer Admin and global environment licence bypasses.
+    # Reject any attempt to turn EITHER release switch on. This safeguard is
+    # independent of settings and cannot be bypassed with an environment flag.
+    # Keep the verified clinical release archive untouched. A separately
+    # signed/versioned replacement requires review before download activation.
+    if config.downloads_enabled or config.release_approved:
+        raise RuntimeError(
+            "SECURITY HOLD: TEC EPR Clinic Edition 1.0.0 is quarantined "
+            "from commercial download issuance pending a new signed release"
+        )
     signer = None
     if config.downloads_enabled and config.release_approved:
         try:
