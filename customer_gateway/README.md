@@ -64,12 +64,19 @@ login, account, logout and expiry. Never submit real patient data.
 
 ## Current evidence and outstanding release gates
 
-The owner has reported passing real staging sign-in, MFA, appointment and
-customer-download flows, and provided a full downloaded archive byte-count and
-SHA-256 match. The pinned offline verification utility reports PASS. Detached
-publisher-signature verification and live entitlement-revocation acceptance are
-still pending. Automated test suites run on SQLite and isolated PostgreSQL 18.
-Do not mistake mocked provider tests for live acceptance.
+The owner has reported passing staging sign-in, MFA, appointed administrator
+and customer download. The **actual customer-downloaded 1.0.0 archive** passed
+pinned SHA-256/size, trusted publisher RSA-SHA256 detached-manifest signature,
+and complete signed-manifest payload binding (**442 signed files plus 3 signing
+metadata files**). This is owner-reported read-only operator evidence; the
+local evidence JSON remains on the operator workstation. GitHub CI runs on
+SQLite and isolated PostgreSQL 18. These integrity checks do **not** validate
+a commercial licence or live entitlement revocation.
+
+**Next acceptance:** live synthetic staging grant revocation, cross-tenant
+denial, and previously minted R2 signed GET URL expiry. See
+[REVOCATION_STAGING_ACCEPTANCE.md](REVOCATION_STAGING_ACCEPTANCE.md).
+Do not mistake mocked tests for proof of live provider/R2 behaviour.
 
 Provider session revocation/webhooks, session refresh, idle limits, rate limits,
 abuse quotas, protected audit retention/export, dependency review, verified R2
