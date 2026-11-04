@@ -67,6 +67,37 @@ class StagingLockdownTests(unittest.TestCase):
                     self.assertEqual(main([], reader=lambda:(_ for _ in ()).throw(error)),2)
                 self.assertNotIn("private secret",log.getvalue())
 
+    def test_windows_powershell_stdin_mode_verifies_without_echoing_secrets(self):
+        variables={"GATEWAY_DOWNLOADS_ENABLED":"false",
+                   "GATEWAY_RELEASE_APPROVED":"false",
+                   "WORKOS_API_KEY":"sk_test_should_never_print",
+                   "R2_SECRET_ACCESS_KEY":"test_private_value_should_never_print"}
+        out=StringIO()
+        with redirect_stdout(out):
+            self.assertEqual(main(["--stdin"], reader=lambda: self.fail(
+                "subprocess CLI should not be called in stdin mode"),
+                stdin=StringIO(json.dumps(variables))),0)
+        self.assertNotIn("should_never_print",out.getvalue())
+        self.assertIn("GATEWAY_DOWNLOADS_ENABLED: DISABLED",out.getvalue())
+        self.assertIn("GATEWAY_RELEASE_APPROVED: DISABLED",out.getvalue())
+
+    def test_stdin_mode_rejects_bad_or_missing_or_secret_only_data(self):
+        for raw in ("", "not-json", "[]", '{"GATEWAY_DOWNLOADS_ENABLED":"false"}',
+                    '{"GATEWAY_DOWNLOADS_ENABLED":"true","GATEWAY_RELEASE_APPROVED":"false"}'):
+            with self.subTest(raw=raw[:10]):
+                out=StringIO()
+                with redirect_stdout(out):
+                    code=main(["--stdin"],stdin=StringIO(raw))
+                self.assertNotEqual(code,0)
+                self.assertNotIn("true",out.getvalue())
+                self.assertNotIn("not-json",out.getvalue())
+
+    def test_utf8_bom_stdin_accepted_and_empty_blocked(self):
+        raw='\ufeff{"GATEWAY_DOWNLOADS_ENABLED":"false","GATEWAY_RELEASE_APPROVED":"false"}'
+        with redirect_stdout(StringIO()):
+            self.assertEqual(main(["--stdin"],stdin=StringIO(raw)),0)
+            self.assertEqual(main(["--stdin"],stdin=StringIO("")),2)
+
     def test_invalid_cli_result_rejected_without_values_echo(self):
         runner=Mock(return_value=Mock(returncode=0,stdout="[1,2,3]"))
         with self.assertRaises(ValueError):
