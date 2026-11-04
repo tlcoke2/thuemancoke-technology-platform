@@ -157,6 +157,9 @@ class DownloadTests(unittest.TestCase):
             self.assertEqual(response.status_code,200)
             self.assertEqual(response.headers['cache-control'],'no-store')
             self.assertEqual(response.headers['referrer-policy'],'no-referrer')
-            self.assertIn('Private installer download',response.text)
+            self.assertIn('Your private download is ready', response.text)
+        self.assertIn('<!doctype html>', response.text)
+        self.assertIn('/assets/gateway.css', response.text)
+        self.assertIn('style-src', response.headers['content-security-policy'])
 
 if __name__=='__main__': unittest.main()
