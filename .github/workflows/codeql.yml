@@ -4,7 +4,9 @@ on:
   push:
     branches: ["main"]
   pull_request:
-    branches: ["main"]
+    # Run static analysis for the isolated staging gateway's draft PR as well
+    # as ordinary website/backend PRs into main.
+    branches: ["main", "feature/workos-staging-gateway"]
   schedule:
     - cron: "17 4 * * 1"
 
