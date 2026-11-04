@@ -233,7 +233,15 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             intro="Your trusted portal for software access, verification and secure delivery.")
 
     @app.get("/signed-out", response_class=HTMLResponse)
-    def signed_out():
+    def signed_out(request: Request):
+        # Never claim the browser is signed out when its local session remains
+        # valid (for example if someone opens this URL manually).
+        try:
+            current(request)
+        except HTTPException:
+            pass
+        else:
+            return RedirectResponse("/account", 303)
         return view("You have signed out",
             '<section class="card"><span class="stat">Gateway session ended</span>'
             '<h2>Your TCL gateway session has been closed.</h2>'
