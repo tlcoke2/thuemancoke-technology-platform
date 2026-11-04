@@ -10,7 +10,8 @@ from urllib.parse import urlencode, urlsplit
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine, delete, insert, select
 
 
@@ -76,6 +77,10 @@ class WorkOS:
 def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None, identity_lookup=None, download_signer=None):
     provider = provider or WorkOS(config)
     try:
+        from .ui import page as view, message_page, STYLESHEET
+    except ImportError:
+        from ui import page as view, message_page, STYLESHEET
+    try:
         from .mfa import StepUp, WorkOSMFA, MFAError, elevations, metadata as access_metadata
     except ImportError:
         from mfa import StepUp, WorkOSMFA, MFAError, elevations, metadata as access_metadata
@@ -92,6 +97,47 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
     step_up = StepUp(engine, sessions, audit, mfa_provider or WorkOSMFA(config.api_key), clock)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
+    @app.get("/assets/gateway.css", include_in_schema=False)
+    def gateway_css():
+        return Response(STYLESHEET, media_type="text/css; charset=utf-8")
+
+    @app.exception_handler(StarletteHTTPException)
+    async def browser_error(request: Request, error: StarletteHTTPException):
+        # Health probes remain machine-readable; form/page errors must never
+        # expose unstyled FastAPI JSON ("detail") in the customer browser.
+        if request.url.path in ("/health", "/ready"):
+            return JSONResponse({"detail": "Gateway health check failed"}, status_code=error.status_code)
+        detail = error.detail if isinstance(error.detail, str) else "The operation could not be completed."
+        title = {
+            400: "Unable to complete request", 401: "Please sign in again",
+            403: "Access not permitted", 404: "Page not found",
+            405: "Action not available", 413: "Form too large",
+            415: "Unsupported form", 503: "Service temporarily unavailable",
+        }.get(error.status_code, "Request not completed")
+        if error.status_code == 401:
+            detail = "Your gateway session has expired, or you need to sign in again."
+        elif error.status_code == 404:
+            detail = "That page is not available. Return to the gateway to continue."
+        response = HTMLResponse(message_page(title, detail,
+            action="/auth/login" if error.status_code == 401 else "/",
+            action_label="Sign in securely" if error.status_code == 401 else "Return to gateway"),
+            status_code=error.status_code)
+        if error.headers:
+            response.headers.update(error.headers)
+        return response
+
+    @app.exception_handler(Exception)
+    async def unexpected_error(request: Request, error: Exception):
+        # Fail closed, do not display internal exception text or provider secrets.
+        if request.url.path in ("/health", "/ready"):
+            return JSONResponse({"detail": "Gateway check unavailable"}, status_code=500)
+        return HTMLResponse(message_page("Something went wrong",
+            "The action could not be confirmed. Please return to your account "
+            "and try again, or contact your administrator.",
+            action="/account", action_label="Return to account",
+            eyebrow="SECURE RECOVERY"), status_code=500)
+
+
     @app.middleware("http")
     async def security(request, call_next):
         # No dependence on attacker-controlled forwarded host for redirects or cookies.
@@ -103,7 +149,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         policy = "same-origin" if request.url.path in ("/account", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/customer") else "no-referrer"
         response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
-            "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+            "Content-Security-Policy": "default-src 'none'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
             "Strict-Transport-Security": "max-age=31536000"})
         if request.url.path == "/auth/mfa/enroll":
             response.headers["Content-Security-Policy"] += "; img-src data:"
@@ -149,7 +195,45 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
 
     @app.get("/", response_class=HTMLResponse)
     def home():
-        return "<h1>TCL Customer Gateway — Staging</h1><p>Sign-in testing only. Downloads and licences are unavailable.</p><a href='/auth/login'>Sign in</a>"
+        sign_in = ('<a class="button" href="/auth/login">Sign in securely</a>' if config.enabled
+                   else '<p class="notice warn">Sign-in is currently disabled.</p>')
+        release_status = ('Controlled staging downloads are enabled'
+                          if config.downloads_enabled and config.release_approved
+                          else 'Private downloads require active, approved access')
+        return view("Secure software. Clear customer access.",
+            '<div class="grid"><section class="card panel-gradient">'
+            '<span class="kicker">TCL SOFTWARE DELIVERY</span>'
+            '<h2>TEC EPR Clinic Edition 1.0.0</h2>'
+            '<p>Secure access to your software entitlement, private release download '
+            'and verification information.</p><div class="actions">' + sign_in
+            + '</div><p class="fine">Access is subject to identity verification and authorisation.</p>'
+            '</section><section class="card"><h2>What you can expect</h2>'
+            '<ul class="feature-list">'
+            '<li>Verified sign-in and protected account sessions</li>'
+            '<li>Independent administrator approval of customer access</li>'
+            '<li>Time-limited private downloads with access controls</li>'
+            '<li>Documented file-integrity and publisher verification</li></ul>'
+            '<div class="notice">' + html.escape(release_status) + '</div></section></div>'
+            '<section class="card"><div class="segment"><div><span class="kicker">'
+            'ACCOUNT SUPPORT</span><h2>Already registered?</h2>'
+            '<p class="muted">Check your customer status or contact TCL if your '
+            'organisation is awaiting approval.</p></div>'
+            '<a class="button secondary" href="/account">My account</a></div></section>',
+            eyebrow="PROTECTED CUSTOMER EXPERIENCE",
+            intro="Your trusted portal for software access, verification and secure delivery.")
+
+    @app.get("/signed-out", response_class=HTMLResponse)
+    def signed_out():
+        return view("You have signed out",
+            '<section class="card"><span class="stat">Gateway session ended</span>'
+            '<h2>Your TCL gateway session has been closed.</h2>'
+            '<p>This signs you out of the gateway only. Your identity-provider '
+            'single sign-on session may remain active.</p>'
+            '<div class="actions"><a class="button" href="/auth/login">Sign in again</a>'
+            '<a class="button secondary" href="/">Return to gateway</a></div>'
+            '<p class="fine">On shared computers, also sign out of your identity '
+            'provider and close your browser.</p></section>',
+            eyebrow="SESSION COMPLETE")
 
     @app.get("/auth/login")
     def login(request: Request):
@@ -390,7 +474,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             c.execute(delete(sessions).where(sessions.c.token_hash == row["token_hash"]))
             c.execute(insert(audit).values(id=secrets.token_hex(16), event="staging_logout",
                                           subject=row["subject"], created=int(clock())))
-        response = RedirectResponse("/", 303)
+        response = RedirectResponse("/signed-out", 303)
         response.delete_cookie(SESSION_COOKIE, secure=True, httponly=True, samesite="lax", path="/")
         return response
 
