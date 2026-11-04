@@ -236,3 +236,34 @@ owner approval.
 **Gate C = PENDING.** Staging security owner approval is acknowledged;
 real commercial distribution and production activation require the
 above source, licensing and operating controls.
+
+## Technical refinement — use the actual offline customer installer source
+
+The 1.0.0 signed-package static audit correctly detected both legacy
+owner/diagnostic bypass **patterns** in the packaged middleware. A further
+review of the actual customer installer source identified a critical
+qualification: when `TEC_DEPLOYMENT_MODE=customer`, that middleware calls
+`customerLicense.enforce()` **before** the legacy bypass branches, verifying
+RSA-signed, installation-bound subscriptions. The customer Compose file sets
+`TEC_DEPLOYMENT_MODE=customer`. Thus detection of the legacy source patterns
+**does not, by itself, prove an ordinary Admin can bypass licensing when the
+customer package is correctly configured**.
+
+The material product-hardening requirement is to eliminate the **owner-mode
+fallback selected by deployment configuration from the distributed customer
+image**, so a customer-modified mode cannot trivially reach legacy bypasses.
+The right remediation is the **installer-specific draft [TEC PR #22](
+https://github.com/tlcoke2/tec_epr_backend/pull/22)** based on
+`enterprise/customer-install-candidate`, not wholesale copying the generic
+backend PR #20 into RC11. Its source packager substitutes a dedicated
+customer-only licence gate before hashing the new manifest while leaving
+signed release and original RC11 trees unchanged. Customer-only negative
+module tests and package allowlist tests passed in GitHub Actions.
+
+New source provenance and unsigned candidate preparation instructions are in
+[the installer release guide](https://github.com/tlcoke2/tec_epr_backend/blob/security/clinic-1.0.1-customer-installer-hardening/docs/CLINIC-1.0.1-CUSTOMER-RELEASE.md).
+Compare the owner's local RC11 backend/frontend against the pinned, previously
+authenticated 1.0.0 signed manifest **before** building any separate 1.0.1
+evaluation candidate. A signing ceremony and fresh clinical approval are
+still required. The original 1.0.0 remains withheld from external sales
+pending acceptance of the customer-only packaging and licensing controls.
