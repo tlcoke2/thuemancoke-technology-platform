@@ -192,9 +192,45 @@ def progress(report):
             lines.append("  - PENDING: " + group + "." + name)
         if set(submitted) != set(expected):
             lines.append("  - WARNING: unexpected/missing field names")
+    # "Recorded" means present, not valid. Surface field-specific failures
+    # without ever echoing confidential values supplied by the operator.
+    timestamps = report.get("timestamps_utc")
+    if isinstance(timestamps, dict):
+        for name in TEMPLATE["timestamps_utc"]:
+            if timestamps.get(name) is not None:
+                try:
+                    _utc_timestamp(timestamps[name])
+                except (ValueError, TypeError):
+                    lines.append("  - INVALID: timestamps_utc." + name +
+                                 " (required: actual UTC YYYY-MM-DDTHH:MM:SSZ)")
+    statuses = report.get("http_statuses")
+    expected_statuses = {
+        "before_approval_download": 403,
+        "self_approval": 403,
+        "approved_download": 200,
+        "other_tenant_download": 403,
+        "post_revoke_download": 403,
+        "expired_r2_get": 403,
+        "old_session_account": 401,
+        "new_session_revoked_download": 403,
+    }
+    if isinstance(statuses, dict):
+        for name, expected in expected_statuses.items():
+            actual = statuses.get(name)
+            if actual is not None and (type(actual) is not int or actual != expected):
+                lines.append("  - INVALID: http_statuses." + name +
+                             " (expected observed numeric HTTP " + str(expected) + ")")
     for name in ("git_commit", "url_ttl_seconds"):
         if report.get(name) in (None, ""):
             lines.append("PENDING: " + name)
+    # The deployed commit is not necessarily the current checkout head.
+    commit = report.get("git_commit")
+    if commit not in (None, "") and (
+            not isinstance(commit, str) or not re.fullmatch("[a-f0-9]{40}", commit)):
+        lines.append("INVALID: git_commit (must be actual deployed 40-character SHA)")
+    ttl = report.get("url_ttl_seconds")
+    if ttl is not None and (type(ttl) is not int or not 1 <= ttl <= 300):
+        lines.append("INVALID: url_ttl_seconds (must be observed integer from 1 to 300)")
     success, reasons = evaluate(report)
     lines.append("Final validator: " + ("PASS (report consistency only)" if success
                   else "PENDING/FAIL (" + str(len(reasons)) + " issues)"))
