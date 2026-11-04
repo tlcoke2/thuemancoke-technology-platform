@@ -1,6 +1,6 @@
 # TCL Customer Gateway — independent staging-to-production assurance
 
-**Status:** NOT SIGNED OFF. **Scope:** Staging only; no production cutover.
+**Status:** Owner reports independent WorkOS and Cloudflare R2 tests complete and owner-signed; the underlying evidence is not attached to GitHub. Other commercial and production-specific controls remain PENDING. **Scope:** Staging only; no production cutover.
 
 ## Evidence already reported by the operator (4 November 2026)
 
@@ -93,3 +93,55 @@ The first public preflight flagged effective downloads as enabled. The operator 
 **Status:** Public staging runtime preflight PASS (owner reported). This is not a commercial sign-off. The two underlying release flags should also be independently confirmed as disabled with the newly added read-only `verify_staging_lockdown.py`, which reports only the flags' pass/fail verdicts and does not print the full Railway variable set. The newer lockdown deployment is separate from the prior deployment that was tested during Gate B.
 
 Synthetic grant cleanup, provider-event review, object-storage permission verification, provider SSO revocation policy, audit retention and commercial risk acceptance remain pending.
+
+## Owner-reported R2 and WorkOS security acceptance — 4 November 2026
+
+The company owner states the independent WorkOS and Cloudflare R2 tests were
+successfully completed and signed off. **Record this as owner-attested approval
+of the WorkOS/R2 staging tests, not a new test independently performed by this
+GitHub change.** No signed private report, provider exports, test identities
+or storage URLs were requested for this repository. Keep them in access-
+controlled organisational evidence storage, with reviewer name/role, dates,
+control outcomes and report hashes available for the commercial audit.
+
+Previously validated: staging Gate B operator report passed locally; after
+reverting both test release variables to false, the public /health + /ready
+preflight passed on staging deployment 6aa2f7f5-bc32-47a2-8904-32a4425a8791.
+
+The latest owner workstation reported `verify_staging_lockdown.py`
+`PENDING/FAIL: Cannot confirm Railway staging flags using read-only CLI`.
+This is a **local CLI/JSON acquisition issue**; it does not override the
+successful runtime /health security check. A Windows-compatible, read-only
+piped-stdin mode was added so Railway CLI can execute under PowerShell and
+provide JSON to the offline checker without printing secrets:
+
+~~~powershell
+cd C:\My_Applications\TCL-gateway-verification
+git pull --ff-only origin feature/gateway-entitlement-approvals
+railway variable list --service tcl-customer-gateway-staging --environment staging --json |
+    python .\customer_gateway\verify_staging_lockdown.py --stdin
+~~~
+
+The CLI JSON can contain *all service variables including credentials*. Do
+not show it in the terminal, save it to files, paste it into chat, or enable
+PowerShell pipeline transcription while performing this sensitive check. The
+Python utility prints **only** the two selected control flags and never
+echoes the full JSON. This pipeline is **read-only** and never changes
+provider configuration.
+
+### Commercial gate still requires new decisions
+
+Owner sign-off of staging security does not constitute approval to deploy
+an unreviewed production WorkOS tenant, production R2 IAM, commercial
+licensing/activation system, production Postgres, custom Cloudflare DNS or
+customer marketing. The staging Python application deliberately requires
+APP_ENV=staging; **do not simply change it to production**. The final
+production candidate needs an explicit, peer-reviewed environment promotion
+plan and new tests. Licensing must not be represented as automatic merely
+because private downloads are now secured.
+
+The R2 time-limited URL design permits previously minted GET bearer URLs
+to remain valid until expiry despite grant revocation. Obtain an
+explicit written owner commercial-risk decision about this up-to-300-second
+window, or introduce an authorising proxy and retest before the first
+real customer release.
