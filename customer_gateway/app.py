@@ -376,11 +376,12 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         try:
             key, qr = step_up.enroll(row["token_hash"], config.enrollment_subjects)
         except MFAError as error:
-            return HTMLResponse("<h1>Authenticator setup</h1><p>" + html.escape(str(error))
-                + "</p><a href='/account'>Return to account</a>", status_code=400)
+            return HTMLResponse(message_page("Authenticator setup",
+                str(error), action="/account", action_label="Return to account"), status_code=400)
         qr_html = ("<img width='256' height='256' alt='Authenticator setup QR code' src='"
                    + html.escape(qr, quote=True) + "'>") if qr else ""
-        return ("<h1>Set up your authenticator</h1><p>Add an account in your authenticator app. "
+        return view("Set up your authenticator", '<section class="card">'
+            '<p>Add an account in your authenticator app. "
             "Scan this QR code, or enter the setup key manually as a time-based account.</p>"
             + qr_html + "<p>Account: TCL Customer Gateway</p><p>Setup key: <code>"
             + html.escape(key) + "</code></p><p>Keep this page private. Add the account before "
@@ -389,7 +390,9 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             "<form action='/auth/mfa/verify' method='post'><input type='hidden' name='csrf' value='"
             + row['csrf'] + "'><label>Authenticator code <input name='code' inputmode='numeric' "
             "autocomplete='one-time-code' pattern='[0-9]{6}' maxlength='6' required></label>"
-            "<button>Confirm authenticator</button></form>")
+            "<button>Confirm authenticator</button></form></section>",
+            eyebrow="STRONG ACCOUNT SECURITY",
+            intro="Scan the code or use the temporary setup key and confirm your authenticator.")
 
     @app.post("/auth/mfa/start")
     async def mfa_start(request: Request):
@@ -406,12 +409,15 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
     def mfa_page(request: Request):
         row = current(request)
         mfa_ready()
-        return ("<h1>Verify your authenticator</h1><p>Enter the current six-digit code. "
+        return view("Verify your authenticator", '<section class="card">'
+                '<p>Enter the current six-digit code. "
                 "This verifies your session; it does not grant administrator or download access.</p>"
                 "<form action='/auth/mfa/verify' method='post'><input type='hidden' name='csrf' value='"
                 + row['csrf'] + "'><label>Authenticator code <input name='code' inputmode='numeric' "
                 "autocomplete='one-time-code' pattern='[0-9]{6}' maxlength='6' required></label>"
-                "<button>Verify</button></form><a href='/account'>Return to account</a>")
+                "<button>Verify</button></form><a href='/account'>Return to account</a></section>",
+                eyebrow="SECURE VERIFICATION",
+                intro="Verify your identity before performing a privileged action.")
 
     @app.post("/auth/mfa/verify")
     async def mfa_verify(request: Request):
@@ -433,15 +439,16 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
                 entitlements._actor(c, row['token_hash'], int(clock()))
                 records = c.execute(select(grants).order_by(grants.c.id).limit(100)).mappings().all()
         except Denied:
-            return HTMLResponse("<h1>Approval dashboard</h1><p>An appointed administrator and recent "
-                "authenticator verification are required.</p><a href='/account'>Return to account</a>", status_code=403)
-        content = "<h1>Approval dashboard — Staging</h1><p>A download grant does not issue a software licence.</p>"
+            return HTMLResponse(message_page("Administrator verification required",
+                "An appointed administrator and recent authenticator verification are required.",
+                action="/account", action_label="Verify my account"), status_code=403)
+        content = '<section class="card"><p class="notice">A download grant does not issue a software licence.</p>'
         if config.onboarding_enabled:
             content += "<p><a href='/admin/customers'>Customer onboarding and review</a></p>"
         if not records:
             content += "<p>No download grant requests are awaiting review.</p>"
         else:
-            content += "<p>Showing up to 100 grants.</p><table><tr><th>Grant</th><th>Tenant</th>"
+            content += '<p>Showing up to 100 grants.</p><div class="table-scroll"><table><tr><th>Grant</th><th>Tenant</th>'
             content += "<th>State</th><th>Release</th><th>Proposed by</th><th>Starts (UTC)</th><th>Expires (UTC)</th><th>Contract reference</th><th>Approval reference</th><th>Action</th></tr>"
             for g in records:
                 esc = lambda v: html.escape(str(v), quote=True)
@@ -456,8 +463,10 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
                         + "'><button>Revoke</button></form>")
                 content += "<tr>" + "".join("<td>" + esc(datetime.fromtimestamp(g[k], timezone.utc).strftime("%d %b %Y %H:%M") if k in ("starts", "expires") else g[k]) + "</td>" for k in
                     ('id','tenant_id','state','release_id','proposer','starts','expires','contract_reference','approval_reference')) + "<td>" + actions + "</td></tr>"
-            content += "</table>"
-        return content + "<p><a href='/account'>Return to account</a></p>"
+            content += "</table></div>"
+        return view("Approval dashboard", content + '<p><a class="button secondary" href="/account">Return to account</a></p></section>',
+            eyebrow="ADMINISTRATOR WORKSPACE",
+            intro="Review access requests, approve independently, or revoke existing grants.")
 
     @app.post("/admin/grants/{grant_id}/{action}")
     async def admin_action(grant_id: str, action: str, request: Request):
@@ -513,12 +522,32 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             raise HTTPException(403, str(error)) from None
         except Exception:
             raise HTTPException(503, "Download issuance unavailable; no link released") from None
-        return ("<h1>Private installer download</h1><p>This link expires in "
-            + str(decision.ttl_seconds) + " seconds. Keep it private.</p><p><a rel='noreferrer' href='"
-            + html.escape(url, quote=True) + "'>Download TEC EPR Clinic Edition 1.0.0</a></p>"
-            "<p>Verify the archive SHA-256 and publisher signature before installation.</p><p>SHA-256: <code>"
-            + decision.release.sha256 + "</code></p><p>No software licence is issued by this download.</p>"
-            "<a href='/customer'>Return to customer access</a>")
+        # URL appears only in this authenticated no-store HTML response; never
+        # persist it, add it to analytics, or place it in logs.
+        return view("Your private download is ready",
+            '<div class="grid"><section class="card panel-gradient">'
+            '<span class="stat">Approved private release</span>'
+            '<h2>TEC EPR Clinic Edition 1.0.0</h2>'
+            '<p>Use this one-time delivery window to obtain your release archive. '
+            'Keep the link private and do not forward it.</p>'
+            '<div class="actions"><a class="button" rel="noreferrer noopener" href="'
+            + html.escape(url, quote=True) + '">Download release archive</a></div>'
+            '<p class="fine">Link lifetime: ' + str(decision.ttl_seconds)
+            + ' seconds. Already-issued links may remain valid until expiry after grant revocation.</p>'
+            '</section><section class="card"><span class="kicker">VERIFY THE ARCHIVE</span>'
+            '<h2>Confirm file integrity</h2>'
+            '<p>After downloading, verify the SHA-256 checksum and independently '
+            'validate the publisher signature before installation.</p>'
+            '<span class="kicker">EXPECTED SHA-256</span><code class="code">'
+            + decision.release.sha256 + '</code>'
+            '<div class="notice warn">Downloading software does not activate or issue a licence.</div>'
+            '</section></div><section class="card"><div class="segment"><div>'
+            '<h2>Need to review your access?</h2>'
+            '<p class="muted">Return to your customer portal for your current '
+            'entitlement status.</p></div><a class="button secondary" href="/customer">'
+            'My customer access</a></div></section>',
+            eyebrow="PROTECTED SOFTWARE DELIVERY",
+            intro="An authorised, short-lived download link has been generated for your session.")
 
     try:
         from .onboarding_ui import register
