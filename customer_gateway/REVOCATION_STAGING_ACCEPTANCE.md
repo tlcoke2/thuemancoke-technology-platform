@@ -1,6 +1,6 @@
 # Gate B — Live staging customer entitlement revocation and isolation
 
-**Environment:** TCL customer gateway staging ONLY. **Status:** Owner-reported staging UAT; complete HTTP/audit evidence not yet attested.
+**Environment:** TCL customer gateway staging ONLY. **Status (4 Nov 2026):** Operator-reported Gate B test completed; local redacted report consistently **PASS** using real Railway deployment UUID + UTC creation as alternate provenance. **Independent provider-level evidence review and production authorisation remain PENDING.**
 
 This test does not authorise production downloads. It must use dedicated staging customer records, never real patients, CRM records or clinical databases. Do not touch the signed TEC EPR Clinic Edition 1.0.0 master archive, publisher private key or R2 object. The SHA-256/signature/full-archive binding acceptance (Gate A3) has already passed, separately.
 
@@ -178,3 +178,10 @@ Do not include customer identifiers, email, signatures, R2 presigned links,
 cookies, OTPs, private keys or patient data. Keep both reports private.
 Even a fully consistent local report is only an operator attestation;
 independent security and production approval are still required.
+
+
+## Operator completion recorded — 4 November 2026
+
+The owner completed the guided, individually confirmed 15-check staging UAT report, corrected the eight recorded HTTP responses and four UTC timestamps, and used a CLI-exported Railway staging deployment UUID and UTC creation time because the metadata did not expose a Git commit hash. The final local command `python .\customer_gateway\validate_revocation_evidence.py --file "$withProvenance"` returned **PASS: Redacted operator evidence meets staging Gate B acceptance criteria**. This establishes **operator-reported report consistency**, not an independent live security test. The local evidence must remain private; no signed URL, credential, personal identity, patient record or customer reference is embedded in GitHub.
+
+Gate B operator report: **PASS (owner reported)**. Independent verification: **PENDING**. Commercial release: **NOT AUTHORISED**. For the remaining evidence review, risks and sign-off requirements, see [INDEPENDENT_SECURITY_REVIEW.md](INDEPENDENT_SECURITY_REVIEW.md).
