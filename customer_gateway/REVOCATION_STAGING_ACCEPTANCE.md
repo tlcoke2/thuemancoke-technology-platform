@@ -63,13 +63,24 @@ git pull --ff-only origin feature/gateway-entitlement-approvals
 python .\customer_gateway\validate_revocation_evidence.py --template "$env:USERPROFILE\Downloads\TCL-stage-B-evidence.json"
 ```
 
-Then record the observed staging-only result values in the JSON file without
-including grant IDs, subject IDs, email addresses, token strings, cookies,
-R2 signed URLs, secrets or patient data. Use UTC `YYYY-MM-DDTHH:MM:SSZ`
-timestamps. An unknown observation must remain `null`; **never enter
-true or HTTP 403 just to make the validator pass**. Use the actual deployed
-Git commit in `git_commit`, not the latest development commit by assumption.
-Run:
+The operator has already created a blank `TCL-stage-B-evidence.json`
+template. **Do not run `--template` again against that filename**: the tool
+correctly refuses to overwrite it. Review or edit the existing local file
+with `notepad "$env:USERPROFILE\\Downloads\\TCL-stage-B-evidence.json"`
+(or a trusted code editor). The `--progress` command lists only outstanding
+field names and never prints confidential evidence values:
+
+```powershell
+python .\\customer_gateway\\validate_revocation_evidence.py --progress "$env:USERPROFILE\\Downloads\\TCL-stage-B-evidence.json"
+```
+
+Then record the **actually observed** staging-only values; do not include
+grant IDs, subject IDs, email addresses, token strings, cookies, R2 signed
+URLs, secrets or patient data. Use UTC `YYYY-MM-DDTHH:MM:SSZ` timestamps.
+An unknown observation remains `null`; **never enter `true`, `200` or
+`403` just to make the validator pass**. The supplied `git_commit` must
+be the **deployed staging service's** commit at the time of the UAT, not
+the latest local/git branch revision by assumption. Run:
 
 ```powershell
 python .\customer_gateway\validate_revocation_evidence.py --file "$env:USERPROFILE\Downloads\TCL-stage-B-evidence.json"
