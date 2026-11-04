@@ -497,6 +497,26 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             raise HTTPException(403, str(error)) from None
         return RedirectResponse('/admin', 303)
 
+    @app.get("/auth/logout", response_class=HTMLResponse)
+    def logout_confirmation(request: Request):
+        # A direct link to /auth/logout is read-only, never a state-changing GET.
+        # This avoids an HTTP 405/error page for customers with an old bookmark.
+        try:
+            row = current(request)
+        except HTTPException:
+            return RedirectResponse("/signed-out", 303)
+        csrf = html.escape(row["csrf"], quote=True)
+        return view("Sign out securely",
+            '<section class="card"><h2>End your gateway session?</h2>'
+            '<p>Signing out ends this TCL session and clears its local cookie. '
+            'Your identity-provider single sign-on session may remain active.</p>'
+            '<form action="/auth/logout" method="post">'
+            "<input type='hidden' name='csrf' value='" + csrf + "'>"
+            '<div class="actions"><button>Sign out now</button>'
+            '<a class="button secondary" href="/account">Stay signed in</a>'
+            '</div></form></section>',
+            eyebrow="SESSION SECURITY")
+
     @app.post("/auth/logout")
     async def logout(request: Request):
         row = current(request)
