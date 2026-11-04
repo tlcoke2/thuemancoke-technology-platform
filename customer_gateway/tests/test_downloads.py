@@ -79,6 +79,22 @@ class DownloadTests(unittest.TestCase):
         with self.assertRaises(Denied): self.downloads.issue('user_customer','foreign')
         self.assertEqual(self.signer.checked,0)
 
+    def test_revocation_blocks_new_links_but_does_not_recall_existing_bearer_url(self):
+        first_url, _ = self.issue()
+        self.assertEqual(len(self.signer.calls), 1)
+        with self.engine.begin() as c:
+            c.execute(update(grants).where(grants.c.id == 'grant_test').values(state='revoked'))
+        with self.assertRaises(Denied):
+            self.issue()
+        self.assertEqual(len(self.signer.calls), 1)
+        # R2 presigned URLs are bearer tokens: revoking the database grant cannot
+        # invalidate a URL already minted. Never claim instantaneous recall.
+        self.assertIn('token=never-audit-this', first_url)
+        with self.engine.connect() as c:
+            rows = c.execute(select(events)).mappings().all()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['event'], 'download_link_issued')
+
     def test_lifetime_cannot_outlive_session(self):
         with self.engine.begin() as c:
             c.execute(update(sessions).where(sessions.c.subject=='user_customer').values(expires=10023))
