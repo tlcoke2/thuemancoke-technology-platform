@@ -2,7 +2,7 @@
 
 **Scope:** TCL customer gateway only, PR #38. Do not edit, rebuild, replace, or republish the signed Clinic Edition master archive, detached signatures, publisher private key, or any clinical database. All tests must use the dedicated staging gateway database. The release remains pinned by `download_policy.py`.
 
-## Gate A — Verify the actual downloaded bytes (pending live operator evidence)
+## Gate A — Verify the actual downloaded bytes (PASS: owner-observed)
 
 The previous successful R2 HEAD only proved the stored object's recorded byte count and ETag. It did **not** establish SHA-256 integrity or publisher authenticity.
 
@@ -62,9 +62,7 @@ and a controlled customer with active membership signs in.
   present `from_environment()` guard intentionally **refuses non-staging** and
   must not be bypassed as part of this verification exercise.
 
-**Current status:** implementation of the offline read-back verifier and synthetic
-revocation regression is available on draft PR #38. Neither a full live file
-read-back nor live revocation acceptance is attested by the source changes alone.
+**Current status:** owner-reported live SHA-256 read-back, RSA-4096 detached manifest verification and complete archive-member-to-manifest binding have all PASSED. Live grant revocation and URL expiry, separate-tenant denial and independent production acceptance remain unverified.
 
 ## Gate A2 — Verify publisher-signed manifest (read-only)
 
@@ -159,7 +157,4 @@ Then rerun with `--archive-prefix "actual-wrapper-folder"` only if this is
 genuinely the uniform packaging prefix. Never weaken per-member hash
 verification or allow unsigned payload entries simply to obtain PASS.
 
-**Live result pending:** Only record Gate A3 as PASS when the owner supplies
-the utility's successful output for the actual downloaded archive. The
-already issued entitlement revocation and post-expiry URL tests are separate
-and also remain pending.
+**Owner-observed live Gate A3 result: PASS (4 November 2026).** The operator ran the offline verifier against the actual customer-downloaded archive after checking out commit `c893203c3e1326ff3ed5c26fb7a343e538a6aa47`. Its output showed PASS for trusted publisher SPKI + exact RSA-SHA256 manifest signature, pinned downloaded archive SHA-256 and byte count, and every signed manifest file. **442 payload files** and **3 bundled signing metadata files** verified. The JSON evidence exists on the operator workstation but has not been independently fetched/reviewed here. This is full release-integrity evidence; it is not licence issuance or live entitlement revocation evidence. See the PR #38 dated evidence comment. Gate B remains PENDING.
