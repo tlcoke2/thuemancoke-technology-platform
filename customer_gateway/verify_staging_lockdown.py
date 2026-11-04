@@ -9,6 +9,7 @@ logs or files. No Railway changes, no provider auth and no customer requests.
 import argparse
 import json
 import subprocess
+import sys
 
 
 CLI = ("railway", "variable", "list", "--service", "tcl-customer-gateway-staging",
@@ -39,15 +40,32 @@ def check(values):
     return checks
 
 
-def main(argv=None, reader=read_variables, say=print):
+def _decode_stdin(stream):
+    # Prevent unlimited allocation and never print raw data: Railway variable
+    # lists can contain WorkOS keys, database passwords and R2 credentials.
+    raw = stream.read(250_001)
+    if not raw or len(raw) > 250_000:
+        raise ValueError("Empty or oversized JSON input")
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8-sig")
+    parsed = json.loads(raw.lstrip("\ufeff"))
+    if not isinstance(parsed, dict):
+        raise ValueError("Expected Railway variable JSON object")
+    return parsed
+
+
+def main(argv=None, reader=read_variables, say=print, stdin=None):
     cli = argparse.ArgumentParser(description="Verify BOTH Railway staging download flags are false; no secrets printed")
-    cli.parse_args(argv)
+    cli.add_argument("--stdin", action="store_true",
+                     help="Read Railway staging variable JSON from stdin instead of launching the Railway CLI")
+    args = cli.parse_args(argv)
     try:
-        checks = check(reader())
+        values = _decode_stdin(stdin if stdin is not None else sys.stdin) if args.stdin else reader()
+        checks = check(values)
     except (ValueError, TypeError, OSError, TimeoutError, subprocess.SubprocessError,
-            json.JSONDecodeError):
-        say("PENDING/FAIL: Cannot confirm Railway staging flags using read-only CLI.")
-        say("No variables or credentials displayed. Check linked project and Railway CLI access.")
+            json.JSONDecodeError, UnicodeError):
+        say("PENDING/FAIL: Unable to verify both staging flags from Railway JSON.")
+        say("No variable contents were displayed. For Windows CLI launch issues, use --stdin.")
         return 2
     for flag in FLAGS:
         say(flag + ": " + ("DISABLED" if checks[flag] else "NOT VERIFIED DISABLED"))
