@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 import json
 import unittest
 
-from customer_gateway.validate_revocation_evidence import TEMPLATE, evaluate, main
+from customer_gateway.validate_revocation_evidence import TEMPLATE, evaluate, main, progress
 
 
 class RevocationEvidenceTests(unittest.TestCase):
@@ -98,6 +98,26 @@ class RevocationEvidenceTests(unittest.TestCase):
             report=self.valid()
             report[key]=value
             self.assertFalse(evaluate(report)[0])
+
+    def test_progress_lists_missing_field_names_only(self):
+        report=copy.deepcopy(TEMPLATE)
+        output=progress(report)
+        self.assertIn("http_statuses: 0/8 recorded", output)
+        self.assertIn("  - PENDING: checks.post_revoke_new_url_denied", output)
+        self.assertTrue(any("PENDING/FAIL" in line for line in output))
+        self.assertNotIn("https://", "\\n".join(output))
+        complete=progress(self.valid())
+        self.assertIn("Final validator: PASS (report consistency only)", complete)
+
+    def test_progress_cli_reads_existing_without_writing(self):
+        with TemporaryDirectory() as temp:
+            evidence=Path(temp)/'evidence.json'
+            evidence.write_text(json.dumps(TEMPLATE),encoding='utf-8')
+            before=evidence.read_bytes()
+            self.assertEqual(main(['--progress',str(evidence)]),1)
+            self.assertEqual(evidence.read_bytes(),before)
+            evidence.write_text(json.dumps(self.valid()),encoding='utf-8')
+            self.assertEqual(main(['--progress',str(evidence)]),0)
 
     def test_file_mode_and_exclusive_template(self):
         with TemporaryDirectory() as temp:
