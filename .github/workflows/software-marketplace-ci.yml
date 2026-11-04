@@ -79,7 +79,7 @@ jobs:
         run: |
           test -f dist/customer-portal.html
           grep -q './customer-portal.html' dist/software.html
-          grep -q 'Customer Portal' dist/index.html
+          grep -R -q 'customer-portal.html' dist/assets
           grep -q '"enabled":false,"origin":null' dist/software-config.js
           ! grep -Ei 'private\.pem|TEC-EPR-Clinic-Edition-1\.0\.0-.*\.tar\.gz' dist/customer-portal.html
           ! grep -Ei 'staging.*up\.railway\.app' dist/customer-portal.html dist/software-config.js
