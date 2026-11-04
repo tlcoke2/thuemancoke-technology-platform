@@ -10,6 +10,25 @@ from pathlib import Path
 import re
 
 
+# Railway CLI deployments may not have a GitHub commit in their metadata.
+# A documented deployment UUID plus creation UTC time is an alternative source
+# locator for the operator's locally recorded staging evidence.
+RAILWAY_PROVENANCE_FIELDS = frozenset(("railway_deployment_id", "railway_deployment_created_at"))
+RAILWAY_DEPLOYMENT_ID = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+)
+
+def railway_created_at(value):
+    """Parse the actual CLI deployment's createdAt, including milliseconds."""
+    if not isinstance(value,str) or not re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z", value
+    ):
+        raise ValueError("Railway createdAt must be an exact UTC timestamp")
+    dt = datetime.fromisoformat(value.replace("Z","+00:00"))
+    if dt.year < 2026:
+        raise ValueError("Railway deployment predates programme")
+    return dt
+
 CHECKS = (
     "customer_denied_before_approval",
     "self_approval_denied",
@@ -102,8 +121,10 @@ def evaluate(report):
                 issue("Unexpected/missing keys in " + key)
         elif key not in ("git_commit", "test_reference", "url_ttl_seconds") and report[key] != value:
             issue("Unexpected value for " + key)
-    if set(report) != set(TEMPLATE):
-        issue("Unexpected root fields; use only the supplied template")
+    actual_fields = set(report)
+    allowed_fields = set(TEMPLATE)
+    if actual_fields != allowed_fields and actual_fields != allowed_fields | RAILWAY_PROVENANCE_FIELDS:
+        issue("Unexpected root fields; only exact optional Railway provenance fields are allowed")
 
     def inspect(value):
         if isinstance(value, dict):
@@ -117,8 +138,25 @@ def evaluate(report):
             issue("Sensitive values and URLs are forbidden")
     inspect(report)
     commit = report.get("git_commit")
-    if not isinstance(commit, str) or not re.fullmatch("[a-f0-9]{40}", commit):
-        issue("git_commit must be a full 40-character SHA-1")
+    commit_valid = isinstance(commit, str) and re.fullmatch(r"[a-f0-9]{40}", commit) is not None
+    railway_fields_present = RAILWAY_PROVENANCE_FIELDS <= set(report)
+    railway_valid = False
+    deployment_started = None
+    if railway_fields_present:
+        ident = report.get("railway_deployment_id")
+        try:
+            if not isinstance(ident,str) or RAILWAY_DEPLOYMENT_ID.fullmatch(ident) is None:
+                raise ValueError("Invalid deployment UUID")
+            deployment_started = railway_created_at(report.get("railway_deployment_created_at"))
+            railway_valid = True
+        except (ValueError, TypeError):
+            issue("Railway provenance requires a valid deployment UUID and actual UTC createdAt")
+    if not commit_valid and not railway_valid:
+        issue("Missing valid deployed Git commit or Railway deployment UUID + UTC createdAt")
+    if commit not in ("", None) and not commit_valid:
+        issue("git_commit contains an invalid value; leave blank when using Railway deployment ID")
+    if commit_valid and railway_valid:
+        issue("Choose one deployment provenance method, not two")
     reference = report.get("test_reference")
     if not isinstance(reference, str) or not re.fullmatch("[A-Z0-9-]{8,64}", reference):
         issue("test_reference must be a synthetic non-personal label")
@@ -167,6 +205,8 @@ def evaluate(report):
             issue("Revocation and denial must follow signed URL issuance")
         if dates["expired_r2_get_attempt"] < dates["url_issued"] + timedelta(seconds=ttl+30):
             issue("Expired R2 GET must be checked at least 30 seconds past the URL TTL")
+    if railway_valid and "url_issued" in dates and deployment_started > dates["url_issued"]:
+        issue("Railway deployment was created AFTER recorded signed URL issuance; wrong UAT deployment")
     return not issues, issues
 
 
@@ -220,14 +260,31 @@ def progress(report):
             if actual is not None and (type(actual) is not int or actual != expected):
                 lines.append("  - INVALID: http_statuses." + name +
                              " (expected observed numeric HTTP " + str(expected) + ")")
-    for name in ("git_commit", "url_ttl_seconds"):
-        if report.get(name) in (None, ""):
-            lines.append("PENDING: " + name)
+    if report.get("url_ttl_seconds") in (None, ""):
+        lines.append("PENDING: url_ttl_seconds")
+    if report.get("git_commit") in (None, "") and not (
+            RAILWAY_PROVENANCE_FIELDS <= set(report)):
+        lines.append("PENDING: Git commit OR Railway deployment UUID + createdAt")
     # The deployed commit is not necessarily the current checkout head.
     commit = report.get("git_commit")
     if commit not in (None, "") and (
             not isinstance(commit, str) or not re.fullmatch("[a-f0-9]{40}", commit)):
         lines.append("INVALID: git_commit (must be actual deployed 40-character SHA)")
+    if RAILWAY_PROVENANCE_FIELDS <= set(report):
+        try:
+            ident = report.get("railway_deployment_id")
+            if not isinstance(ident,str) or RAILWAY_DEPLOYMENT_ID.fullmatch(ident) is None:
+                raise ValueError("Invalid Railway UUID")
+            created = railway_created_at(report.get("railway_deployment_created_at"))
+            lines.append("Railway deployment provenance: UUID + UTC createdAt recorded")
+            if isinstance(timestamps,dict):
+                try:
+                    if created > _utc_timestamp(timestamps.get("url_issued")):
+                        lines.append("INVALID: Railway deployment creation is after UAT URL issuance")
+                except (TypeError,ValueError):
+                    pass
+        except (TypeError,ValueError):
+            lines.append("INVALID: Railway deployment provenance fields")
     ttl = report.get("url_ttl_seconds")
     if ttl is not None and (type(ttl) is not int or not 1 <= ttl <= 300):
         lines.append("INVALID: url_ttl_seconds (must be observed integer from 1 to 300)")
