@@ -1,8 +1,10 @@
-# TCL WorkOS staging sign-in service
+# TCL customer gateway — staging candidate
 
-Candidate only: a hosted sign-in rehearsal, not the production customer gateway.
-No download signer, R2 credential, licence action, admin privilege or entitlement
-is exposed. This service never imports the existing CRM application's DB code.
+This isolated staging-only service supports WorkOS AuthKit sign-in, appointed
+administrators with MFA, two-person entitlement review, customer onboarding and
+conditionally gated private R2 release links. It is **not production-authorised**,
+does not issue software licences, and never imports the existing CRM or clinical
+database code. See CUSTOMER_ROLLOUT.md and RELEASE_READBACK_REVOCATION.md.
 
 ## Server-side flow
 
@@ -21,7 +23,10 @@ is exposed. This service never imports the existing CRM application's DB code.
   not issue a session. Audit contains provider subject, event and timestamp only.
 - Public UI does not display email/name. Logs do not include callbacks or tokens;
   Uvicorn access logs disabled. Configure proxy/observability query redaction too.
-- Downloads return 403 even after login. No customer administrator bootstrap.
+- Downloads are disabled unless both release flags are enabled and the signed-in
+  customer has an active, approved, current entitlement. Sign-in alone grants
+  no download permission. First administrator appointment remains an explicit
+  staging procedure; no automatic customer administrator bootstrap occurs.
 
 ## Configuration (new isolated Railway service and new database)
 
@@ -57,19 +62,21 @@ The initializer refuses nonempty databases. No startup migrations are performed.
 Check /ready after initialization, then enable staging sign-in and test browser
 login, account, logout and expiry. Never submit real patient data.
 
-## Outstanding release gates
+## Current evidence and outstanding release gates
 
-Real WorkOS browser flow remains untested until staging deployment. Eleven test
-cases mock provider responses and test SQLite; CI also runs against PostgreSQL18.
-Tests cover replay, cross-browser state, unverified email, provider failure,
-session expiry, CSRF, audit rollback and no download/admin access.
+The owner has reported passing real staging sign-in, MFA, appointment and
+customer-download flows, and provided a full downloaded archive byte-count and
+SHA-256 match. The pinned offline verification utility reports PASS. Detached
+publisher-signature verification and live entitlement-revocation acceptance are
+still pending. Automated test suites run on SQLite and isolated PostgreSQL 18.
+Do not mistake mocked provider tests for live acceptance.
 
-Admin MFA must be established from provider-validated context before any privileged
-endpoint exists. Provider session revocation/webhooks, session refresh, idle limits,
-rate limits and abuse quotas, audit retention/export, full dependency audit, secure
-customer membership/grant persistence and production review are still required.
-The fixed short local session does not immediately follow provider-side revocation.
-This candidate must remain staging-only while those controls are unfinished.
+Provider session revocation/webhooks, session refresh, idle limits, rate limits,
+abuse quotas, protected audit retention/export, dependency review, verified R2
+credential scope and production independent security review remain required.
+The fifteen-minute local session does not immediately track provider revocation;
+already-issued R2 bearer links survive grant revocation until their expiry.
+This candidate must remain staging-only while these controls are unfinished.
 
 Docs checked: https://workos.com/docs/authkit/vanilla/python and
 https://workos.com/docs/reference/authkit/authentication (2026-11-01).
@@ -87,3 +94,13 @@ See [CUSTOMER_ROLLOUT.md](CUSTOMER_ROLLOUT.md) for the implemented customer prop
 independent approval, customer view and disabled private R2 signer, the new explicit
 additive migration, 85-test evidence, and the remaining production gates. This
 supersedes earlier implementation-status notes; no live completion is implied.
+
+## Branded customer experience (November 2026)
+
+See [UI_STAGING_ROLLOUT.md](UI_STAGING_ROLLOUT.md). Pages use a responsive,
+same-origin stylesheet with no third-party scripts. Customer login landing,
+account, MFA, onboarding, approval and download pages have been redesigned.
+Logout redirects to a clear signed-out page. Browser errors are styled HTML,
+rather than raw framework JSON; `/health` and `/ready` remain JSON for monitors.
+The presentation update needs **no schema migration** and does not alter
+entitlement policy, signing keys, flags or release contents.
