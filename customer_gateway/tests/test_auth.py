@@ -184,6 +184,9 @@ class AuthTests(unittest.TestCase):
         self.finish(self.start())
         account = self.client.get("/account")
         self.assertIn('Welcome to your account', account.text)
+        still_signed_in = self.client.get("/signed-out")
+        self.assertEqual(still_signed_in.status_code, 303)
+        self.assertEqual(still_signed_in.headers['location'], '/account')
         token = re.search("name='csrf' value='([^']+)'", account.text)[1]
         confirmation = self.client.get("/auth/logout")
         self.assertEqual(confirmation.status_code, 200)
