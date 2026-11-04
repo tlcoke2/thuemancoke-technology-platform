@@ -75,6 +75,22 @@ jobs:
           test ! -e dist/software-register.html
           test ! -e dist/privacy-software.html
           ! grep -Ei 'TEC-EPR-Clinic-Edition-1\.0\.0-.*\.tar\.gz|private\.pem' dist/software.html
+      - name: Verify customer portal entry is public but sign-in is disabled by default
+        run: |
+          test -f dist/customer-portal.html
+          grep -q './customer-portal.html' dist/software.html
+          grep -q 'Customer Portal' dist/index.html
+          grep -q '"enabled":false,"origin":null' dist/software-config.js
+          ! grep -Ei 'private\.pem|TEC-EPR-Clinic-Edition-1\.0\.0-.*\.tar\.gz' dist/customer-portal.html
+          ! grep -Ei 'staging.*up\.railway\.app' dist/customer-portal.html dist/software-config.js
+      - name: Reject unsafe public customer gateway destinations
+        run: |
+          if VITE_CUSTOMER_GATEWAY_PUBLIC_ENABLED=true npm run build; then exit 1; fi
+          if VITE_CUSTOMER_GATEWAY_PUBLIC_ENABLED=true VITE_CUSTOMER_GATEWAY_ORIGIN=https://tcl-customer-gateway-staging-staging.up.railway.app npm run build; then exit 1; fi
+          if VITE_CUSTOMER_GATEWAY_PUBLIC_ENABLED=true VITE_CUSTOMER_GATEWAY_ORIGIN=https://customers.thuemancokelimited.com/redirect npm run build; then exit 1; fi
+          VITE_CUSTOMER_GATEWAY_PUBLIC_ENABLED=true VITE_CUSTOMER_GATEWAY_ORIGIN=https://customers.thuemancokelimited.com npm run build
+          test -f dist/customer-portal.html
+          grep -q '"enabled":true,"origin":"https://customers.thuemancokelimited.com"' dist/software-config.js
       - name: Verify staging cannot fall back to production intake
         run: |
           if npm run build -- --mode staging; then exit 1; fi
