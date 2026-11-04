@@ -42,7 +42,7 @@ class StagingLockdownTests(unittest.TestCase):
         self.assertFalse(runner.call_args.kwargs.get("shell",False))
         log=StringIO()
         with redirect_stdout(log):
-            self.assertEqual(main(reader=lambda:values),0)
+            self.assertEqual(main([], reader=lambda:values),0)
         self.assertNotIn("sk_sensitive",log.getvalue())
         self.assertIn("PASS:",log.getvalue())
 
@@ -52,11 +52,11 @@ class StagingLockdownTests(unittest.TestCase):
                 "DATABASE_URL":"postgresql://privatehost/secret"}
         log=StringIO()
         with redirect_stdout(log):
-            self.assertEqual(main(reader=lambda:values),1)
+            self.assertEqual(main([], reader=lambda:values),1)
         self.assertNotIn("postgresql://",log.getvalue())
         self.assertIn("NOT VERIFIED DISABLED",log.getvalue())
         with redirect_stdout(StringIO()):
-            self.assertEqual(main(reader=lambda:{}),1)
+            self.assertEqual(main([], reader=lambda:{}),1)
 
     def test_network_or_json_error_is_redacted(self):
         for error in (TimeoutError("private secret"),ValueError("private secret"),
@@ -64,7 +64,7 @@ class StagingLockdownTests(unittest.TestCase):
             with self.subTest(error=type(error)):
                 log=StringIO()
                 with redirect_stdout(log):
-                    self.assertEqual(main(reader=lambda:(_ for _ in ()).throw(error)),2)
+                    self.assertEqual(main([], reader=lambda:(_ for _ in ()).throw(error)),2)
                 self.assertNotIn("private secret",log.getvalue())
 
     def test_invalid_cli_result_rejected_without_values_echo(self):
