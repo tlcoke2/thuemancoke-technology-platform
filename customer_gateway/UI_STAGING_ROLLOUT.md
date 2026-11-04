@@ -15,7 +15,8 @@ WorkOS PKCE flow, permissions, memberships, licence rules, or signed installer.
   `/account` is a signed-in dashboard; `/customer` lists approved access only.
 - `POST /auth/logout` still enforces origin + CSRF and atomically revokes the
   local session with an audit. It now redirects (303) to `/signed-out`, which
-  explains that the WorkOS SSO session may remain active.
+  explains that the WorkOS SSO session may remain active. A direct GET
+  `/auth/logout` presents a non-mutating confirmation form for convenience.
 - User-facing 400/401/403/404/405/413/415/422/503 errors now render a safe
   HTML recovery view, with the HTTP status preserved. Unexpected server
   exceptions never print exception text. Monitoring probes `/health` and
@@ -43,7 +44,8 @@ WorkOS PKCE flow, permissions, memberships, licence rules, or signed installer.
    administrator approval. Check mobile layout and keyboard navigation.
 6. Sign out using the **form button**, confirm HTTP 303 to `/signed-out`
    and that the old gateway session can no longer access `/account`.
-   A page-open `GET /auth/logout` must show a styled 405, not end a session.
+   A page-open `GET /auth/logout` must show a confirmation form and **not**
+   end a session until the user submits the CSRF-protected POST.
 7. Test an expired session (401), denied action (403), unknown page (404)
    and invalid form (400/422). Their content type should be HTML, with
    useful return links. `/health` and `/ready` intentionally stay JSON.
