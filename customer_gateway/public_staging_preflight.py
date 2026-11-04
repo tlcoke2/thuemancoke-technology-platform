@@ -24,8 +24,7 @@ def allowed_origin(origin):
     try:
         value = urlsplit(origin)
         return (value.scheme == "https" and value.hostname is not None
-                and value.hostname.endswith("-staging.up.railway.app")
-                and value.hostname.startswith("tcl-customer-gateway-staging")
+                and value.hostname == "tcl-customer-gateway-staging-staging.up.railway.app"
                 and not any((value.port, value.path, value.query, value.fragment,
                              value.username, value.password)))
     except ValueError:
