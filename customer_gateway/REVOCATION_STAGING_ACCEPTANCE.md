@@ -139,3 +139,42 @@ python .\customer_gateway\validate_revocation_evidence.py --template "$env:USERP
 The replacement is a **blank** report, not proof of testing. Enter only
 actually observed outcomes; otherwise leave fields as `null`. Do not paste
 the private JSON document into chat, public GitHub issues or PR comments.
+
+
+## Guided completion of the existing staging evidence report
+
+The operator has stated that testing succeeded but the JSON report still has
+15 null check flags, a missing deployed commit and incorrect timestamp/HTTP
+representations. A recorded value is not necessarily a valid verified value.
+
+Run the new, **individually confirmed** operator-attestation helper:
+
+~~~powershell
+cd C:\My_Applications\TCL-gateway-verification
+git pull --ff-only origin feature/gateway-entitlement-approvals
+$evidence = Join-Path $env:USERPROFILE 'Downloads\TCL-stage-B-evidence.json'
+$reviewed = Join-Path $env:USERPROFILE 'Downloads\TCL-stage-B-evidence-reviewed.json'
+python .\customer_gateway\complete_revocation_evidence.py --input "$evidence" --output "$reviewed"
+python .\customer_gateway\validate_revocation_evidence.py --progress "$reviewed"
+python .\customer_gateway\validate_revocation_evidence.py --file "$reviewed"
+~~~
+
+The helper NEVER edits the input, NEVER overwrites an existing reviewed file
+and has no network access. It asks for explicit y/n/blank confirmation for
+each of the fifteen UAT checks. Type y only for results actually witnessed;
+type n for observed failure and Enter for unobserved/uncertain. It converts
+already recorded numeric strings into JSON integer HTTP statuses and audit
+counts, and timezone-aware ISO timestamps into canonical UTC format.
+It NEVER overwrites a discrepant HTTP status to force the desired result.
+For invalid times enter the ACTUAL UTC timestamp in YYYY-MM-DDTHH:MM:SSZ
+format; do not assume an unzoned Jamaica-local timestamp is UTC.
+The git_commit field requires the full deployed Railway Source SHA from
+the deployment active at the time of the test, not the latest Git checkout.
+Any unverified field stays pending. Strict output codes are 200 for an
+approved download, 401 for a terminated old gateway session and 403 for
+the protected denials. Report a real unexpected code rather than rewriting it.
+
+Do not include customer identifiers, email, signatures, R2 presigned links,
+cookies, OTPs, private keys or patient data. Keep both reports private.
+Even a fully consistent local report is only an operator attestation;
+independent security and production approval are still required.
