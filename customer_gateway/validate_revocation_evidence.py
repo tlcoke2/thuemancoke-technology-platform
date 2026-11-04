@@ -170,11 +170,45 @@ def evaluate(report):
     return not issues, issues
 
 
+
+def progress(report):
+    """Return a redacted completion summary, never display evidence values."""
+    if not isinstance(report, dict):
+        return ["Invalid report structure; start from --template"]
+    lines = []
+    for group in ("timestamps_utc", "http_statuses", "audit_counts", "checks"):
+        expected = TEMPLATE[group]
+        submitted = report.get(group)
+        if not isinstance(submitted, dict):
+            lines.append(group + ": missing section")
+            continue
+        missing = [key for key in expected if submitted.get(key) is None]
+        incomplete = [key for key in expected if key not in missing
+                      and group == "checks" and submitted.get(key) is not True]
+        total = len(expected)
+        completed = total - len(missing) - len(incomplete)
+        lines.append(group + ": " + str(completed) + "/" + str(total) + " recorded")
+        for name in missing + incomplete:
+            lines.append("  - PENDING: " + group + "." + name)
+        if set(submitted) != set(expected):
+            lines.append("  - WARNING: unexpected/missing field names")
+    for name in ("git_commit", "url_ttl_seconds"):
+        if report.get(name) in (None, ""):
+            lines.append("PENDING: " + name)
+    success, reasons = evaluate(report)
+    lines.append("Final validator: " + ("PASS (report consistency only)" if success
+                  else "PENDING/FAIL (" + str(len(reasons)) + " issues)"))
+    lines.append("This offline checker cannot attest live WorkOS/R2 outcomes.")
+    return lines
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Validate redacted TCL staging revocation evidence; no network or DB access")
     arg = parser.add_mutually_exclusive_group(required=True)
     arg.add_argument("--template", type=Path, help="Create a NEW JSON evidence template (will not overwrite)")
     arg.add_argument("--file", type=Path, help="Validate an operator-filled JSON evidence report")
+    arg.add_argument("--progress", type=Path,
+                     help="Show missing sections of a redacted report, without exposing values")
     args = parser.parse_args(argv)
     if args.template is not None:
         try:
@@ -186,13 +220,20 @@ def main(argv=None):
             return 2
         print("Created blank redacted evidence template. No checks have passed.")
         return 0
+    report_path = args.file if args.file is not None else args.progress
     try:
-        if args.file.stat().st_size > 24_000:
+        if report_path.stat().st_size > 24_000:
             raise ValueError("Evidence file too large")
-        report = json.loads(args.file.read_text(encoding="utf-8"))
+        report = json.loads(report_path.read_text(encoding="utf-8"))
     except (OSError, ValueError, UnicodeError):
         print("ERROR: Cannot read valid, small evidence JSON")
         return 2
+    if args.progress is not None:
+        for line in progress(report):
+            print(line)
+        # The progress command reports incomplete evidence as PENDING
+        # without asking the operator to fabricate any success flags.
+        return 0 if evaluate(report)[0] else 1
     passed, issues = evaluate(report)
     if not passed:
         print("PENDING/FAIL: Live staging revocation evidence is incomplete or inconsistent.")
