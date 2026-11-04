@@ -5,6 +5,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import json
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 
 from customer_gateway.validate_revocation_evidence import TEMPLATE, evaluate, main, progress
 
@@ -118,6 +120,41 @@ class RevocationEvidenceTests(unittest.TestCase):
             self.assertEqual(evidence.read_bytes(),before)
             evidence.write_text(json.dumps(self.valid()),encoding='utf-8')
             self.assertEqual(main(['--progress',str(evidence)]),0)
+
+    def test_read_errors_report_reason_without_echoing_contents(self):
+        with TemporaryDirectory() as temp:
+            source=Path(temp)/'report.json'
+            cases=(
+                (b'', "Evidence file is empty"),
+                (b'{"staging":true,}', "Invalid JSON syntax at line 1"),
+                (b'{"secret":"should-not-appear",}', "Invalid JSON syntax at line 1"),
+                (b'\\xff\\xfe{\\x00}', "not valid UTF-8 JSON"),
+                (b'x'*24001, "24,000-byte safety limit"),
+            )
+            for content, expected in cases:
+                with self.subTest(expected=expected):
+                    source.write_bytes(content)
+                    capture=StringIO()
+                    with redirect_stdout(capture):
+                        self.assertEqual(main(['--progress',str(source)]),2)
+                    self.assertIn(expected,capture.getvalue())
+                    self.assertNotIn('should-not-appear',capture.getvalue())
+            missing=Path(temp)/'missing.json'
+            capture=StringIO()
+            with redirect_stdout(capture):
+                self.assertEqual(main(['--file',str(missing)]),2)
+            self.assertIn("file not found",capture.getvalue())
+
+    def test_utf8_bom_from_windows_notepad_is_accepted_without_mutation(self):
+        with TemporaryDirectory() as temp:
+            source=Path(temp)/'report.json'
+            source.write_bytes(b'\\xef\\xbb\\xbf'+json.dumps(self.valid()).encode('utf-8'))
+            before=source.read_bytes()
+            capture=StringIO()
+            with redirect_stdout(capture):
+                self.assertEqual(main(['--file',str(source)]),0)
+            self.assertIn("PASS: Redacted operator evidence",capture.getvalue())
+            self.assertEqual(before,source.read_bytes())
 
     def test_file_mode_and_exclusive_template(self):
         with TemporaryDirectory() as temp:
