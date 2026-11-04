@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <meta name="theme-color" content="#071827" />
+  <meta name="description" content="Thueman Coke Limited secure customer portal for approved TEC EPR software access." />
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  <title>Secure Customer Portal | Thueman Coke Limited</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:#e5f4ff;background:#071827}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 80% 10%,#17476a 0,transparent 44%),linear-gradient(145deg,#06131f,#0d2c41)}
+    a{color:inherit}a:focus-visible{outline:3px solid #79e3fc;outline-offset:4px}
+    .wrap{max-width:1150px;width:calc(100% - 40px);margin:auto}
+    header{border-bottom:1px solid rgba(255,255,255,.12);background:#071827df}
+    .nav{display:flex;align-items:center;justify-content:space-between;min-height:88px;gap:15px;flex-wrap:wrap;padding:14px 0}
+    .brand{display:flex;align-items:center;gap:14px;text-decoration:none;font-weight:800;letter-spacing:.02em}
+    .brand img{width:46px;height:46px;border-radius:11px;object-fit:cover;object-position:top}
+    .brand small{display:block;font-size:11px;color:#8ecde7;margin-top:5px;letter-spacing:.1em;text-transform:uppercase}
+    .nav-links{display:flex;gap:18px;flex-wrap:wrap}.nav-links a{text-decoration:none;color:#c5ddea;font-size:14px}.nav-links a:hover{color:white}
+    main{padding:80px 0 95px}.eyebrow{display:inline-flex;align-items:center;gap:10px;color:#5ce4ce;letter-spacing:.16em;text-transform:uppercase;font-size:12px;font-weight:800}
+    .eyebrow:before{content:"";width:9px;height:9px;border-radius:50%;background:#5ce4ce;box-shadow:0 0 0 5px #0c5b61}
+    h1{font-size:clamp(38px,6vw,67px);line-height:1.05;letter-spacing:-.055em;max-width:830px;margin:19px 0}
+    .lead{max-width:755px;color:#bbd1df;line-height:1.8;font-size:18px;margin:0 0 36px}
+    .grid{display:grid;grid-template-columns:1.18fr .82fr;gap:20px;align-items:stretch}
+    .card{background:#fff;color:#122a3e;border-radius:19px;border:1px solid #dceaf2;padding:33px;box-shadow:0 26px 60px #0002}
+    .card h2{font-size:25px;letter-spacing:-.035em;margin:0 0 13px}.card p{line-height:1.7;color:#526f80}
+    .secondary-card{background:#102d42;color:#f5fcff;border-color:#28516d}
+    .secondary-card h2{color:white}.secondary-card p{color:#c2d7e5}
+    .status{display:inline-block;padding:8px 13px;border-radius:99px;background:#fff6dc;color:#805412;font-weight:750;font-size:12px}
+    .cta{display:inline-flex;align-items:center;justify-content:center;border-radius:10px;background:#0d8eae;color:#fff;text-decoration:none;font-weight:800;padding:13px 20px;min-height:46px;margin-top:12px}
+    .cta:hover{background:#06718c}.cta.alt{background:transparent;border:1px solid #7baac3;color:#e9f8ff}
+    .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
+    ul{padding:0;list-style:none;margin:18px 0}li{line-height:1.6;margin:13px 0;padding-left:28px;position:relative}li:before{position:absolute;left:0;content:"✓";color:#62e3bf;font-weight:900}
+    .note{font-size:13px;color:#698091}
+    footer{border-top:1px solid #315166;padding:25px 0;color:#9dbccc;font-size:12px;line-height:1.7}
+    [hidden]{display:none!important}
+    @media(max-width:760px){main{padding:46px 0 62px}.grid{grid-template-columns:1fr}.card{padding:24px}.nav{min-height:72px}}
+  </style>
+</head>
+<body>
+  <header><div class="wrap nav">
+    <a class="brand" href="./" aria-label="Thueman Coke Limited home">
+      <img src="./images/thueman-coke-logo.png" alt="" />
+      <span>Thueman Coke Limited<small>Software customer gateway</small></span>
+    </a>
+    <nav class="nav-links" aria-label="Site navigation">
+      <a href="./">Home</a><a href="./software.html">Enterprise software</a><a href="./software.html#request">Request access</a>
+    </nav>
+  </div></header>
+  <main class="wrap">
+    <span class="eyebrow">Secure enterprise software access</span>
+    <h1>Your software. Your organisation. One secure portal.</h1>
+    <p class="lead">The Thueman Coke Limited Customer Gateway provides authenticated access to approved TEC EPR Clinic Edition releases, entitlement information and controlled downloads.</p>
+    <div class="grid">
+      <section class="card" aria-labelledby="access-title">
+        <h2 id="access-title">Customer sign-in</h2>
+        <p id="access-description">Customer access is being prepared for commercial release. The gateway will become available here when production security and entitlement controls are approved.</p>
+        <span id="portal-status" class="status" role="status" aria-live="polite">Production access pending approval</span>
+        <div class="actions">
+          <a id="gateway-signin" class="cta" href="./software.html#request" hidden>Sign in to customer gateway ↗</a>
+          <a class="cta" id="request-access" href="./software.html#request">Request access review</a>
+        </div>
+        <p class="note">You must have an individually verified account and an approved customer entitlement before any download can be issued. A download does not issue a software licence.</p>
+      </section>
+      <aside class="card secondary-card" aria-labelledby="security-title">
+        <h2 id="security-title">Built for controlled delivery</h2>
+        <ul>
+          <li>Verified identity and secure sign-in</li>
+          <li>Independent entitlement approval</li>
+          <li>Time-limited private download links</li>
+          <li>Publisher-signed release verification</li>
+        </ul>
+        <p>Your access details, organisation records and approval history are never published on this marketing website.</p>
+        <a href="./software.html" class="cta alt">Explore TEC EPR Clinic Edition</a>
+      </aside>
+    </div>
+  </main>
+  <footer><div class="wrap">© Thueman Coke Limited · Customer access is subject to eligibility, verified identity, approved entitlement and applicable commercial terms. <a href="./privacy.html">Privacy notice</a></div></footer>
+  <script src="./software-config.js"></script>
+  <script>
+    (() => {
+      "use strict";
+      const cfg = window.TCL_CUSTOMER_GATEWAY;
+      if (!cfg || cfg.enabled !== true || typeof cfg.origin !== "string") return;
+      try {
+        const origin = new URL(cfg.origin);
+        if (origin.protocol !== "https:" || origin.username || origin.password ||
+            origin.pathname !== "/" || origin.search || origin.hash) return;
+        const login = new URL("/auth/login", origin);
+        document.getElementById("gateway-signin").href = login.href;
+        document.getElementById("gateway-signin").hidden = false;
+        document.getElementById("request-access").classList.add("cta", "alt");
+        document.getElementById("access-description").textContent =
+          "Already approved? Continue with secure identity verification to view your organisation's software entitlements and request an authorised private download.";
+        document.getElementById("portal-status").textContent = "Secure customer sign-in available";
+        document.getElementById("portal-status").style.cssText = "background:#e7f8ec;color:#16673a";
+      } catch {
+        // Fail closed. Never render a destination from invalid build configuration.
+      }
+    })();
+  </script>
+</body>
+</html>
