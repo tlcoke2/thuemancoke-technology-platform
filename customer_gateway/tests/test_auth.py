@@ -169,13 +169,14 @@ class AuthTests(unittest.TestCase):
         self.assertIn('text/css', css.headers['content-type'])
         self.assertIn('style-src \'self\'', css.headers['content-security-policy'])
         self.assertIn('@media(max-width:720px)', css.text)
-        for path, status in (("/account",401),("/does-not-exist",404),("/auth/logout",405)):
+        for path, status in (("/account",401),("/does-not-exist",404)):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code,status)
                 self.assertIn('text/html',response.headers['content-type'])
                 self.assertIn('<!doctype html>',response.text)
                 self.assertNotIn('{"detail":',response.text)
+        self.assertEqual(self.client.get("/auth/logout").status_code, 303)
         self.assertTrue(self.client.get("/health").json()["ok"])
         self.assertTrue(self.client.get("/ready").json()["ready"])
 
@@ -184,6 +185,10 @@ class AuthTests(unittest.TestCase):
         account = self.client.get("/account")
         self.assertIn('Welcome to your account', account.text)
         token = re.search("name='csrf' value='([^']+)'", account.text)[1]
+        confirmation = self.client.get("/auth/logout")
+        self.assertEqual(confirmation.status_code, 200)
+        self.assertIn('End your gateway session?', confirmation.text)
+        self.assertEqual(self.count(sessions), 1)
         result = self.client.post("/auth/logout", data={"csrf":token},
                                   headers={"origin": self.config.origin})
         self.assertEqual(result.status_code,303)
