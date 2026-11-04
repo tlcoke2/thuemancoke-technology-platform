@@ -315,16 +315,36 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
                 mfa_html += ("<p>If you have never enrolled an authenticator for this account:</p>"
                     "<form action='/auth/mfa/enroll' method='post'><input type='hidden' name='csrf' value='"
                     + row['csrf'] + "'><button>Set up authenticator</button></form>")
-        role_html = ("<p>Your email is verified. Role: <strong>Gateway administrator / approver</strong>.</p>"
-                     "<p><a href='/admin'>Open approval dashboard</a>. Recent authenticator verification is required.</p>"
-                     "<p>This role does not grant customer downloads or issue a licence.</p>") if is_admin else (
-                     "<p>Your email is verified. Customer access awaits approval.</p>"
-                     "<p>No download, administrator privilege or licence has been granted.</p>")
+        role_html = (
+            '<span class="stat">Gateway administrator / approver</span>'
+            '<h2>Administrator access</h2><p>Your email has been verified, and '
+            'your administrator appointment is active.</p>'
+            '<p>Recent authenticator verification is required for privileged actions.</p>'
+            '<div class="actions"><a class="button" href="/admin">Approval dashboard</a></div>'
+            '<p class="fine">An administrator appointment does not automatically '
+            'grant a software licence or customer download.</p>'
+        ) if is_admin else (
+            '<span class="stat pending">Customer account</span>'
+            '<h2>My access</h2><p>Your email has been verified. '
+            'Customer entitlements still require independent approval.</p>'
+            '<p class="fine">Signing in never creates download permissions or a licence.</p>'
+        )
         if config.onboarding_enabled:
-            role_html += "<p><a href='/customer'>My customer access</a></p>"
-        return ("<h1>Sign-in successful</h1>" + role_html
-                + mfa_html + "<form action='/auth/logout' method='post'><input type='hidden' name='csrf' value='"
-                +row["csrf"]+"'><button>Sign out of this gateway</button></form>")
+            role_html += '<div class="actions"><a class="button secondary" href="/customer">View customer access</a></div>'
+        body = (
+            '<div class="grid"><section class="card">' + role_html + '</section>'
+            '<section class="card"><span class="kicker">ACCOUNT SECURITY</span>'
+            '<h2>Additional verification</h2>' + mfa_html + '</section></div>'
+            '<section class="card"><div class="segment"><div><h2>Manage session</h2>'
+            '<p class="muted">Signing out ends this gateway session; '
+            'it does not end your identity-provider single sign-on session.</p></div>'
+            '<form action="/auth/logout" method="post">'
+            '<input type="hidden" name="csrf" value="' + html.escape(row["csrf"], quote=True) + '">'
+            '<button class="secondary">Sign out securely</button></form></div></section>'
+        )
+        return view("Welcome to your account", body,
+            eyebrow="AUTHENTICATED CUSTOMER PORTAL",
+            intro="Manage identity verification, check approved access and continue to secure downloads.")
 
     async def protected_form(request, row):
         if request.headers.get("origin") != config.origin:
