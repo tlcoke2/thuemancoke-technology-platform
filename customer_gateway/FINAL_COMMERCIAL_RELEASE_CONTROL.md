@@ -1,0 +1,269 @@
+# TEC EPR Clinic Edition — final commercial release control sheet
+**Prepared 4 November 2026 | Thueman Coke Limited / TEC Healthcare | NO PRODUCTION CUTOVER**
+
+## Release intention
+
+Market and distribute TEC EPR Clinic Edition through Thueman Coke Limited's
+public software pages. New customer registration and contracts are managed
+separately from the clinic's clinical EPR patient database. TEC Healthcare
+retains control of licensing, installation-specific activation and clinical
+support. TCL distributes private publisher-signed installers under an approved
+intercompany agreement.
+
+**Immutable prior candidate:** TEC EPR Clinic Edition 1.0.0, originally
+reported 329,965,422 bytes, SHA-256
+`E1C75BB867627CB60F0F5FF9737B602661550A15DF75F5DF52BF8C43835C8C0E`.
+No work in this GitHub PR modifies, repacks or re-signs that archive.
+Publisher RSA-4096 signing identity and verification are distinct from
+any private **customer licence** signing key.
+
+## Evidence and status as of 4 November 2026
+
+| Area | Evidence status | Commercial disposition |
+| --- | --- | --- |
+| Signed software archive readback | Operator-reported A3 integrity PASS | Preserve immutable release |
+| WorkOS authentication/MFA and R2 private GET | Owner reports independently tested and owner-signed; private supporting report not reviewed in GitHub | Owner-accepted staging UAT; retain protected original evidence |
+| Entitlement grant/revocation/tenant isolation | 15 owner-confirmed checks, offline evidence consistency PASS | UAT reported complete |
+| Staging lockdown | Owner disabled both download/release switches; public HTTPS/DB/MFA preflight PASS | Effective public staging download gating verified |
+| Separate Railway variable verification | Local subprocess failed to fetch JSON; Windows piped JSON mode implemented | Owner should run read-only stdin command |
+| Gateway CI (Python SQL, CodeQL and dependencies) | PASS on 4 Nov 2026 | Source-only assurance |
+| TEC EPR **customer licensing policy** | Backend source review found an unconditional `Admin` role bypass of all licensed modules and `LICENSE_DISABLE=1` environment bypass | **BLOCKER pending signed-package validation and mitigation** |
+| Production deployment | Gateway `from_environment` refuses non-staging, WorkOS production tenant/DB/DNS not provisioned/approved here | **NOT DEPLOYABLE AS-IS** |
+| Commerce and offline licence issuance | Website customer interest is not a licence or purchase; owner signing/renewal/billing workflow remains incomplete | **BLOCKER before real sales** |
+| Privacy, agreements, support and rollout | Commercial contracts/terms, pricing, data protection, support SLA, backups and customer onboarding approval still required | **BLOCKER** |
+
+## Licence-policy security finding — separate source-only remediation
+
+In GitHub repository `tlcoke2/tec_epr_backend`, current `main`
+`src/middleware/checkLicense.js` allows every database-authenticated
+customer `Admin` to bypass all 25 licensed route gates. It also permits
+`LICENSE_DISABLE=1` to bypass licensing for everyone. Existing unit tests
+explicitly codified the Admin bypass.
+
+A **draft, not merged** source fix has been opened at:
+`https://github.com/tlcoke2/tec_epr_backend/pull/20`.
+It preserves the verified owner Superadmin bypass, requires valid module
+subscriptions for ordinary Admin accounts, fails closed for the retired
+global environment bypass and adds regression tests across all 25 routes.
+
+Before commercial distribution, inspect the actual immutable 1.0.0 binary
+against the tested source. The code in main **might differ** from what
+was packaged. **Do not claim the already signed 1.0.0 archive has this
+vulnerability until its contents are verified.** If affected, assemble a
+separate versioned, newly signed release from reviewed, pinned sources,
+perform customer clean-install + rollback, clinical regression, licensing
+smoke, independent scanner, Medical Director acceptance and publisher
+signing. Never overwrite or relabel the original signed 1.0.0.
+
+## Commercial authorisation sequence
+
+1. **Staging close-out.** Record the owner-signed WorkOS/R2 report reference
+   and attestation date in a restricted internal register, verify both
+   staging flags individually disabled, revoke/expire any remaining
+   synthetic approved grant, and preserve the 15-check evidence.
+2. **TEC license integrity.** Review the backend draft PR and existing
+   production-candidate installer policy; ensure only owner Superadmin has
+   the intended bypass and customer Admin cannot circumvent subscriptions.
+   Complete clinical, installer, offline expiry and renewal regression.
+3. **Offline licence issuance.** Define canonical license payload,
+   customer/clinic installation binding, exact modules, trial start/end,
+   grace/renewal policy, update and transfer rules, revocation support,
+   cryptographic verification and key custody. Use an owner-approved
+   offline signing workflow; do not embed private signing keys in Railway,
+   GitHub Pages, shared CRM, browser JavaScript or software download.
+4. **Commercial control plane.** Create a dedicated production gateway
+   PostgreSQL, production WorkOS configuration, production MFA/recovery,
+   strict per-customer entitlements and audit retention; maintain
+   separation from the website CRM and EPR clinical databases.
+5. **Delivery and website.** Publish public product/interest information
+   separately from the private R2 archive. Use a reviewed, verified
+   customer domain, exact identity-provider redirect allowlist,
+   no customer JWTs or presigned URLs in GitHub Pages; preserve public
+   gateway feature flag OFF until approved.
+6. **Commercial agreements.** Execute TEC Healthcare↔TCL distribution/
+   licensing/support rights, EULA, data-protection addendum, privacy
+   transparency, billing/refund terms, installation fee/subscription
+   prices, SLA, security incident policy and customer exit/backup terms.
+7. **Operational resilience.** Verify encrypted independent backup/
+   restore on the dedicated commercial DB; log retention, monitoring,
+   secret rotation, customer support escalation, abuse/WAF controls,
+   rate limits and release signing/change control.
+8. **Production candidate proof.** In a **new** non-patient production-like
+   environment, inspect the release image digests, verify two-admin MFA,
+   isolation, withdrawal and expiration, verify license issuance/renewal/
+   denial. A site connection and successful login **do not** prove
+   commercial activation or clinical safety.
+9. **Formal go/no-go.** TEC Medical Director accepts any new signed
+   clinical release; the authorised TCL/TEC owner accepts pricing,
+   insurance/commercial obligations and residual R2 bearer-link risk.
+   Document independent reviewer, dates, private evidence location,
+   remediation/accepted risks and rollback owner.
+10. **Controlled first pilot.** One contracted site only; enable production
+    configuration via reviewed PR and explicit change window. After pilot
+    acceptance, extend marketing, licensed installs and billing to
+    other customers.
+
+## Mandatory production safety rules
+
+- Staging PR #38 and website PR #39 remain drafts until formal final review.
+- Never set `APP_ENV=production` on the current staging-guarded source
+  and expect it to create a safe production service.
+- Do not make the R2 bucket public. A grant revocation cannot revoke
+  already-issued signed GET bearer links until expiry (<=300 seconds);
+  explicit owner risk acceptance or proxy redesign is required.
+- Never upload publisher/license private keys, evidence customer IDs, R2
+  signed GET query parameters, patient records or secrets to GitHub/CRM.
+- No real customer download entitlement should silently create a clinical
+  software licence, payment or production patient tenant.
+- A separate production database, provider credentials, HTTPS domain,
+  backup procedure and rollback decision are mandatory.
+
+## Staging release controls: independently disabled — owner-confirmed PASS
+
+On 4 November 2026, the owner executed the Windows-safe, read-only Railway
+variable check using piped CLI JSON. The exact results were:
+
+~~~text
+GATEWAY_DOWNLOADS_ENABLED: DISABLED
+GATEWAY_RELEASE_APPROVED: DISABLED
+PASS: Both Railway staging customer gateway download switches are explicitly disabled.
+LIMITATION: Railway config state and public runtime readiness are separate checks.
+~~~
+
+The earlier public `/health` + `/ready` staging preflight also passed after
+the owner set these switches false. **Staging lockdown is accepted as verified
+by the operator at both configuration and public-runtime levels.** The
+WorkOS/R2 independent tests remain recorded as signed off by the owner. Do
+not repeat either test merely to correct evidence formatting. Production
+licensing, production identity, signed release source and commercial
+activation remain distinct controls.
+
+## Inspect the immutable signed EPR package for known licence bypasses
+
+The EPR backend repository's current `main` includes an unrestricted
+customer Admin module-license bypass and an environment-wide
+`LICENSE_DISABLE=1` bypass. Fixes were prepared in separate draft TEC
+backend PR #20, but **current GitHub main is not proof of the contents of the
+previously signed Clinic Edition 1.0.0 archive**. An extra read-only tool
+inspects that exact, pinned archive and its packaged middleware after
+re-verifying the full release's RSA-signed manifest and all 442 payload
+members, and never extracts or executes code.
+
+From the owner-controlled Windows workstation:
+
+~~~powershell
+cd C:\My_Applications\TCL-gateway-verification
+git pull --ff-only origin feature/gateway-entitlement-approvals
+
+python .\customer_gateway\audit_signed_release_license_policy.py `
+    --release-dir "C:\My_Applications\TEC-EPR-Commercial-Releases\TEC-EPR-Clinic-Edition-1.0.0-SIGNED-1d7024f7955a" `
+    --public-key "C:\My_Applications\TEC-EPR-Publisher-Trust\publisher-public-1.0.0.pem" `
+    --archive "C:\My_Applications\TEC-EPR-Commercial-Releases\TEC-EPR-Clinic-Edition-1.0.0-1d7024f7955a.tar.gz"
+~~~
+
+If the archive has a single packaging wrapper, the existing
+`verify_release_payload.py` instructions explain the explicit
+`--archive-prefix` option. Never guess that prefix. The script only
+inspects exact relative `backend/src/middleware/checkLicense.js` paths,
+or that path beneath one wrapper, and does not print source contents. It
+checks the two **known** bypass signatures, not every possible security flaw.
+It blocks distribution if either known bypass is detected; if source is only
+inside `images.tar`, it returns **INCONCLUSIVE**, and requires a separate
+container image/source audit before commercial release.
+
+The original signed 1.0.0 archive must never be overwritten. If affected,
+approve and publish a *new* immutable separately signed version following
+installer regression, clinical acceptance and TEC Medical Director sign-off.
+
+## Verified 1.0.0 commercial hold — 4 November 2026
+
+**BLOCKED FOR EXTERNAL CUSTOMER DISTRIBUTION.** The owner executed the
+read-only archive audit against the exact pinned, signed 1.0.0 distribution.
+It successfully verified the release archive hash/byte count, publisher RSA
+signature and all signed payload members. The packaged source
+`backend/src/middleware/checkLicense.js` was located and inspected; the
+auditor detected **both** known commercial bypass patterns:
+
+~~~text
+admin_bypass_signature: DETECTED
+global_env_bypass_signature: DETECTED
+BLOCK: A known commercial licence bypass pattern exists in signed package source.
+~~~
+
+This closes the previous uncertainty about the **signed package's exposed
+source**, although Docker image runtime/source equivalence still needs
+separate inspection. It does not suggest tampering or a system intrusion:
+the file is publisher-signed but the licensing policy is unsuitable for
+external customer subscriptions. Clinical approval and a valid digital
+signature do not themselves establish commercial licensing enforcement.
+
+**Engineering containment prepared on draft PR #38:** the actual gateway
+entry point `from_environment()` now refuses to start a staging service if
+**either** release issuance flag is enabled while 1.0.0 remains the pinned
+candidate. This is a hard, code-level security hold, in addition to the
+owner's confirmed disabled flags, and includes synthetic negative tests.
+This source-level protection **is not yet deployed** to the currently running
+Railway service. Do not turn staging switches on or treat the public runtime
+as having this new protection until a separately authorised staging rollout.
+
+**Remediation track:** draft
+[TEC backend security PR #20](https://github.com/tlcoke2/tec_epr_backend/pull/20)
+and
+[TEC backend release issue #21](https://github.com/tlcoke2/tec_epr_backend/issues/21).
+Prepare a **separately versioned, newly signed** Clinic Edition 1.0.1
+candidate after source/installer/clinical/security testing and TEC Medical
+Director reapproval. Leave v1.0.0 binary, hashes, publisher signature and
+private R2 object untouched; do not publish a presigned download link for it.
+
+**Gate C disposition:** NO-GO on 1.0.0. A separate 1.0.1 go/no-go can
+occur only after new release provenance, EPR licence lifecycle acceptance,
+production gateway segregation, commercial contracts, rollback and final
+owner approval.
+
+## Approved next technical work (source-only)
+
+- Windows-safe staging variable verification using the fixed piped JSON
+  utility without exposing the full Railway variable list.
+- TEC backend security PR #20 licence-policy review and exact release
+  binary comparison.
+- Production gateway design and operator sign-off of hosting, WorkOS
+  production tenant, audit retention, R2 read-only credential scope,
+  availability and abuse limits.
+- Offline license signing *interoperability contract* based on the actual
+  TEC EPR consumer format, then an isolated trial activation and renewal
+  test; do not ship an invented incompatible license schema.
+
+**Gate C = PENDING.** Staging security owner approval is acknowledged;
+real commercial distribution and production activation require the
+above source, licensing and operating controls.
+
+## Technical refinement — use the actual offline customer installer source
+
+The 1.0.0 signed-package static audit correctly detected both legacy
+owner/diagnostic bypass **patterns** in the packaged middleware. A further
+review of the actual customer installer source identified a critical
+qualification: when `TEC_DEPLOYMENT_MODE=customer`, that middleware calls
+`customerLicense.enforce()` **before** the legacy bypass branches, verifying
+RSA-signed, installation-bound subscriptions. The customer Compose file sets
+`TEC_DEPLOYMENT_MODE=customer`. Thus detection of the legacy source patterns
+**does not, by itself, prove an ordinary Admin can bypass licensing when the
+customer package is correctly configured**.
+
+The material product-hardening requirement is to eliminate the **owner-mode
+fallback selected by deployment configuration from the distributed customer
+image**, so a customer-modified mode cannot trivially reach legacy bypasses.
+The right remediation is the **installer-specific draft [TEC PR #22](
+https://github.com/tlcoke2/tec_epr_backend/pull/22)** based on
+`enterprise/customer-install-candidate`, not wholesale copying the generic
+backend PR #20 into RC11. Its source packager substitutes a dedicated
+customer-only licence gate before hashing the new manifest while leaving
+signed release and original RC11 trees unchanged. Customer-only negative
+module tests and package allowlist tests passed in GitHub Actions.
+
+New source provenance and unsigned candidate preparation instructions are in
+[the installer release guide](https://github.com/tlcoke2/tec_epr_backend/blob/security/clinic-1.0.1-customer-installer-hardening/docs/CLINIC-1.0.1-CUSTOMER-RELEASE.md).
+Compare the owner's local RC11 backend/frontend against the pinned, previously
+authenticated 1.0.0 signed manifest **before** building any separate 1.0.1
+evaluation candidate. A signing ceremony and fresh clinical approval are
+still required. The original 1.0.0 remains withheld from external sales
+pending acceptance of the customer-only packaging and licensing controls.

@@ -1,8 +1,26 @@
-# TCL WorkOS staging sign-in service
+# TCL customer gateway — staging candidate
 
-Candidate only: a hosted sign-in rehearsal, not the production customer gateway.
-No download signer, R2 credential, licence action, admin privilege or entitlement
-is exposed. This service never imports the existing CRM application's DB code.
+> **COMMERCIAL SECURITY HOLD (4 November 2026).** A read-only, authenticated
+> verification of the **actual signed TEC EPR Clinic Edition 1.0.0 archive**
+> detected the two known licensing-bypass patterns in its packaged backend
+> middleware (customer Admin and `LICENSE_DISABLE=1`). The valid signature
+> establishes file integrity, **not acceptable subscription enforcement**.
+> **Do not distribute or generate private R2 links for 1.0.0.** The owner has
+> confirmed both staging release controls are disabled. This branch now includes
+> a source-only fail-closed guard in `from_environment()` preventing either
+> control being enabled while 1.0.0 remains pinned. The new guard has **not**
+> been deployed to the live Railway service; the deployed service continues to
+> rely on the verified disabled variables. See
+> [FINAL_COMMERCIAL_RELEASE_CONTROL.md](FINAL_COMMERCIAL_RELEASE_CONTROL.md)
+> and draft TEC EPR backend security PR #20 / release issue #21 for a proposed,
+> separately signed 1.0.1 remediation. Production remains prohibited.
+
+
+This isolated staging-only service supports WorkOS AuthKit sign-in, appointed
+administrators with MFA, two-person entitlement review, customer onboarding and
+conditionally gated private R2 release links. It is **not production-authorised**,
+does not issue software licences, and never imports the existing CRM or clinical
+database code. See CUSTOMER_ROLLOUT.md and RELEASE_READBACK_REVOCATION.md.
 
 ## Server-side flow
 
@@ -21,7 +39,10 @@ is exposed. This service never imports the existing CRM application's DB code.
   not issue a session. Audit contains provider subject, event and timestamp only.
 - Public UI does not display email/name. Logs do not include callbacks or tokens;
   Uvicorn access logs disabled. Configure proxy/observability query redaction too.
-- Downloads return 403 even after login. No customer administrator bootstrap.
+- Downloads are disabled unless both release flags are enabled and the signed-in
+  customer has an active, approved, current entitlement. Sign-in alone grants
+  no download permission. First administrator appointment remains an explicit
+  staging procedure; no automatic customer administrator bootstrap occurs.
 
 ## Configuration (new isolated Railway service and new database)
 
@@ -57,19 +78,63 @@ The initializer refuses nonempty databases. No startup migrations are performed.
 Check /ready after initialization, then enable staging sign-in and test browser
 login, account, logout and expiry. Never submit real patient data.
 
-## Outstanding release gates
+## Current evidence and outstanding release gates
 
-Real WorkOS browser flow remains untested until staging deployment. Eleven test
-cases mock provider responses and test SQLite; CI also runs against PostgreSQL18.
-Tests cover replay, cross-browser state, unverified email, provider failure,
-session expiry, CSRF, audit rollback and no download/admin access.
+The owner has reported passing staging sign-in, MFA, appointed administrator
+and customer download. The **actual customer-downloaded 1.0.0 archive** passed
+pinned SHA-256/size, trusted publisher RSA-SHA256 detached-manifest signature,
+and complete signed-manifest payload binding (**442 signed files plus 3 signing
+metadata files**). This is owner-reported read-only operator evidence; the
+local evidence JSON remains on the operator workstation. GitHub CI runs on
+SQLite and isolated PostgreSQL 18. These integrity checks do **not** validate
+a commercial licence or live entitlement revocation.
 
-Admin MFA must be established from provider-validated context before any privileged
-endpoint exists. Provider session revocation/webhooks, session refresh, idle limits,
-rate limits and abuse quotas, audit retention/export, full dependency audit, secure
-customer membership/grant persistence and production review are still required.
-The fixed short local session does not immediately follow provider-side revocation.
-This candidate must remain staging-only while those controls are unfinished.
+**Gate B operator validation (4 Nov 2026): PASS, owner-reported.** The operator
+individually confirmed all 15 checks, supplied 4 correctly formatted UTC
+timestamps, 8 expected numeric HTTP responses and 3 audit-event counts. A
+Railway CLI deployment UUID plus UTC creation timestamp identified the staged
+release when no Git SHA was available. The local evidence consistency validator
+returned PASS; no sensitive evidence file was uploaded to GitHub. See
+[REVOCATION_STAGING_ACCEPTANCE.md](REVOCATION_STAGING_ACCEPTANCE.md) and
+[RAILWAY_DEPLOYMENT_PROVENANCE.md](RAILWAY_DEPLOYMENT_PROVENANCE.md).
+
+**Next acceptance: independent security review is PENDING.** A local operator
+attestation does not establish live provider-level assurance. Review actual
+WorkOS/Railway/R2 records, revocation/isolation, signed-link expiry, session
+invalidation, credential scopes and residual-risk policy. See
+[INDEPENDENT_SECURITY_REVIEW.md](INDEPENDENT_SECURITY_REVIEW.md).
+The release is **not production authorised**.
+
+Provider session revocation/webhooks, session refresh, idle limits, rate limits,
+abuse quotas, protected audit retention/export, dependency review, verified R2
+credential scope and production independent security review remain required.
+The fifteen-minute local session does not immediately track provider revocation;
+already-issued R2 bearer links survive grant revocation until their expiry.
+This candidate must remain staging-only while these controls are unfinished.
 
 Docs checked: https://workos.com/docs/authkit/vanilla/python and
 https://workos.com/docs/reference/authkit/authentication (2026-11-01).
+
+## MFA and entitlement candidate
+
+See [MFA_STAGING.md](MFA_STAGING.md) for the feature-disabled deployment and explicit
+additive migration. This supersedes the earlier statement that MFA has no implementation;
+live WorkOS step-up acceptance, operator provisioning and download integration remain
+outstanding. MFA verification alone never grants a role or entitlement.
+
+## Customer onboarding and delivery candidate
+
+See [CUSTOMER_ROLLOUT.md](CUSTOMER_ROLLOUT.md) for the implemented customer proposal,
+independent approval, customer view and disabled private R2 signer, the new explicit
+additive migration, 85-test evidence, and the remaining production gates. This
+supersedes earlier implementation-status notes; no live completion is implied.
+
+## Branded customer experience (November 2026)
+
+See [UI_STAGING_ROLLOUT.md](UI_STAGING_ROLLOUT.md). Pages use a responsive,
+same-origin stylesheet with no third-party scripts. Customer login landing,
+account, MFA, onboarding, approval and download pages have been redesigned.
+Logout redirects to a clear signed-out page. Browser errors are styled HTML,
+rather than raw framework JSON; `/health` and `/ready` remain JSON for monitors.
+The presentation update needs **no schema migration** and does not alter
+entitlement policy, signing keys, flags or release contents.
