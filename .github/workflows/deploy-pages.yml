@@ -39,6 +39,11 @@ jobs:
       - name: Build
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          # Public customer sign-in remains OFF until commercial go/no-go.
+          # GitHub repository Actions variables are not read automatically by
+          # the Vite build unless explicitly exported to this build step.
+          VITE_CUSTOMER_GATEWAY_PUBLIC_ENABLED: ${{ vars.VITE_CUSTOMER_GATEWAY_PUBLIC_ENABLED || 'false' }}
+          VITE_CUSTOMER_GATEWAY_ORIGIN: ${{ vars.VITE_CUSTOMER_GATEWAY_ORIGIN || '' }}
         run: npm run build
 
       - name: Upload Pages artifact
