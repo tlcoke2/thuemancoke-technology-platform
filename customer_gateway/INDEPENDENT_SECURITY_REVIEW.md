@@ -48,7 +48,7 @@ The reviewer must not simply accept an existing check mark or rerun the offline 
 
 **Release action:** PR #38 and PR #39 must stay draft; do not merge, deploy customer production, turn on release flags, or enable the TCL website public sign-in CTA based on local evidence alone. When ready, record reviewer identity/role, date, evidence locations (private references only), accepted residual risks and rollback owner in a protected sign-off document, not in a public GitHub issue.
 
-## Read-only public staging preflight — available, not yet run by the operator
+## Read-only public staging preflight — owner-reported PASS after lockdown
 
 A narrow tool is included to check only two public endpoints of the **exact**
 Railway staging gateway hostname that the owner previously confirmed. It uses
@@ -84,3 +84,12 @@ check of `customer_gateway/requirements.txt` and its resolved dependencies.
 A failed advisory audit must be triaged before production readiness approval;
 it does not automatically authorise dependency upgrades or runtime changes.
 The check runs in GitHub Actions and does not deploy to Railway.
+
+
+## Staging lockdown recheck — owner report, 4 November 2026
+
+The first public preflight flagged effective downloads as enabled. The operator then independently changed both staging download-control switches to disabled and observed a successful new staging deployment, identified as `6aa2f7f5-bc32-47a2-8904-32a4425a8791`. A second public preflight **PASSED** for staging identity, effective download disablement, MFA, closed authenticator enrolment, database readiness and security headers.
+
+**Status:** Public staging runtime preflight PASS (owner reported). This is not a commercial sign-off. The two underlying release flags should also be independently confirmed as disabled with the newly added read-only `verify_staging_lockdown.py`, which reports only the flags' pass/fail verdicts and does not print the full Railway variable set. The newer lockdown deployment is separate from the prior deployment that was tested during Gate B.
+
+Synthetic grant cleanup, provider-event review, object-storage permission verification, provider SSO revocation policy, audit retention and commercial risk acceptance remain pending.
