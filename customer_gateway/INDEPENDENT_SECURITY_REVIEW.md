@@ -47,3 +47,40 @@ The reviewer must not simply accept an existing check mark or rerun the offline 
 **Gate C — production readiness:** **PENDING** until Gate B2 is approved, production environment and dedicated database are separately reviewed, a secure custom TCL gateway hostname and exact WorkOS redirects configured, documented licensing/privacy/terms in place, and owner gives an explicit go/no-go.
 
 **Release action:** PR #38 and PR #39 must stay draft; do not merge, deploy customer production, turn on release flags, or enable the TCL website public sign-in CTA based on local evidence alone. When ready, record reviewer identity/role, date, evidence locations (private references only), accepted residual risks and rollback owner in a protected sign-off document, not in a public GitHub issue.
+
+## Read-only public staging preflight — available, not yet run by the operator
+
+A narrow tool is included to check only two public endpoints of the **exact**
+Railway staging gateway hostname that the owner previously confirmed. It uses
+HTTPS certificate validation, explicitly refuses redirects, sends no cookies
+or credentials, limits response size and makes **GET requests only**:
+
+~~~powershell
+cd C:\My_Applications\TCL-gateway-verification
+git pull --ff-only origin feature/gateway-entitlement-approvals
+python .\customer_gateway\public_staging_preflight.py --origin "https://tcl-customer-gateway-staging-staging.up.railway.app"
+~~~
+
+The checker requests `/health` and `/ready`, checks HTTPS response security
+headers, confirms `environment=staging`, `downloadsEnabled=false`,
+`mfaStepUpEnabled=true`, `authenticatorSetupAvailable=false`, and
+`ready=true`. A FAIL/PENDING can indicate a genuine readiness gap or
+staging configuration drift. Do not turn downloads on to make this test
+pass. Closing first-time authenticator enrolment should be verified in
+Railway staging configuration by an authorised operator before trusting
+the public report.
+
+**Limits:** The public health endpoint's `downloadsEnabled=false` alone
+cannot prove both underlying variables are individually false, and a
+`ready` response checks the gateway database only at that moment. This
+is a public, passive, unauthenticated smoke test; not independent customer
+grant testing, R2 credential scope verification, WorkOS session validation,
+Railway image-source attestation, or commercial certification.
+
+## New dependency vulnerability gate — source-only CI
+
+`.github/workflows/customer-gateway.yml` includes a blocking `pip-audit`
+check of `customer_gateway/requirements.txt` and its resolved dependencies.
+A failed advisory audit must be triaged before production readiness approval;
+it does not automatically authorise dependency upgrades or runtime changes.
+The check runs in GitHub Actions and does not deploy to Railway.
