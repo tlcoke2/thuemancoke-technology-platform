@@ -178,6 +178,11 @@ class Clinical101ReleaseTests(unittest.TestCase):
         self.manifest['scanEvidenceSha256']='e'*64
         self.manifest['reviewedImageIds']['frontend']='sha256:'+'f'*64
         self.prepare()
+        # The evidence object is constructed from the manifest in prepare(),
+        # so deliberately mutate only the external reviewer evidence.
+        self.evidence['imageIds']=dict(self.evidence['imageIds'])
+        self.evidence['imageIds']['frontend']='sha256:'+'2'*64
+        self.evidence_path.write_text(json.dumps(self.evidence),encoding='utf8')
         with self.assertRaisesRegex(VerificationError,'offline image manifest drift'):
             self.verify()
 
