@@ -119,8 +119,24 @@ class Clinical101ReleaseTests(unittest.TestCase):
             review_new_release(self.root,self.public,self.archive,self.evidence_path)
 
     def test_rejects_archive_tamper_even_if_metadata_digest_is_updated(self):
-        self.contents['frontend/index.html']=b'<html>tampered website NOT SAME</html>'
-        self.prepare()
+        # Keep the publisher-signed manifest and all signatures unchanged.
+        # Rewrite only one unsigned archive member and its OUTER checksum.
+        entries={}
+        with tarfile.open(self.archive,'r:gz') as t:
+            for member in t:
+                if member.isfile():
+                    with t.extractfile(member) as stream:
+                        entries[member.name]=stream.read()
+        entries['./frontend/index.html']=b'<html>UNTRUSTED TAMPER</html>'
+        with tarfile.open(self.archive,'w:gz') as t:
+            for name,data in entries.items():
+                item=tarfile.TarInfo(name)
+                item.size=len(data)
+                t.addfile(item,io.BytesIO(data))
+        archive_data=self.archive.read_bytes()
+        self.evidence['archiveSha256']=hashlib.sha256(archive_data).hexdigest()
+        self.evidence['archiveBytes']=len(archive_data)
+        self.evidence_path.write_text(json.dumps(self.evidence),encoding='utf8')
         with self.assertRaises(VerificationError):
             self.verify()
 
