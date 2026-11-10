@@ -50,7 +50,7 @@ def _no_duplicate_keys(pairs):
     return result
 
 
-def _manifest_records(path, expected_manifest_sha):
+def _manifest_records(path, expected_manifest_sha, *, expected_version='1.0.0', expected_status=RELEASE_STATUS):
     manifest_bytes = Path(path).read_bytes()
     manifest_hash = hashlib.sha256(manifest_bytes).hexdigest()
     if not hmac.compare_digest(manifest_hash, expected_manifest_sha):
@@ -59,8 +59,8 @@ def _manifest_records(path, expected_manifest_sha):
         manifest = json.loads(manifest_bytes, object_pairs_hook=_no_duplicate_keys)
     except (UnicodeError, ValueError):
         raise VerificationError('Signed manifest cannot be parsed as JSON') from None
-    if not isinstance(manifest, dict) or (manifest.get('releaseVersion') != '1.0.0'
-            or manifest.get('status') != RELEASE_STATUS):
+    if not isinstance(manifest, dict) or (manifest.get('releaseVersion') != expected_version
+            or manifest.get('status') != expected_status):
         raise VerificationError('Unexpected signed manifest release version or approval status')
     files = manifest.get('files')
     if not isinstance(files, dict) or not files:
@@ -82,7 +82,8 @@ def _manifest_records(path, expected_manifest_sha):
 def verify_release_payload(release_dir, public_key, archive, *, archive_prefix='',
                            release=None, expected_manifest_sha=None,
                            expected_fingerprint=None, expected_sig_bytes=512,
-                           openssl=None):
+                           openssl=None, expected_version='1.0.0',
+                           expected_status=RELEASE_STATUS):
     """Verify all signed file records against the pinned, downloaded tarball.
 
     Alternate expected values are test-fixture injection only; production CLI
@@ -101,9 +102,11 @@ def verify_release_payload(release_dir, public_key, archive, *, archive_prefix='
     # Trust anchor first: verify detached signature and pinned public-key SPKI.
     signature = verify_manifest(
         release_dir, public_key, expected_fingerprint=expected_fingerprint,
-        expected_sig_bytes=expected_sig_bytes, openssl=openssl)
+        expected_sig_bytes=expected_sig_bytes, expected_version=expected_version,
+        openssl=openssl)
     manifest_hash, records = _manifest_records(
-        Path(release_dir) / 'manifest.json', expected_manifest_sha)
+        Path(release_dir) / 'manifest.json', expected_manifest_sha,
+        expected_version=expected_version, expected_status=expected_status)
     if not hmac.compare_digest(signature['manifest_sha256'], manifest_hash):
         raise VerificationError('Signature was checked against different manifest bytes')
 
