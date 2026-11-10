@@ -170,9 +170,6 @@ class Clinical101ReleaseTests(unittest.TestCase):
             self.verify()
 
 
-if __name__=='__main__':
-    unittest.main()
-
     def test_refuses_unsigned_or_mismatched_final_scanner_attestation(self):
         self.manifest['scanEvidenceSha256']='0'*64
         self.prepare()
@@ -183,3 +180,7 @@ if __name__=='__main__':
         self.prepare()
         with self.assertRaisesRegex(VerificationError,'offline image manifest drift'):
             self.verify()
+
+
+if __name__=='__main__':
+    unittest.main()
