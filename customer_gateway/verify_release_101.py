@@ -93,6 +93,13 @@ def review_new_release(release_dir, public_key, archive, evidence_file,
         manifest.get('targetReleaseVersion')!=VERSION or
         manifest.get('source')!=source or
         manifest.get('approvalEvidenceSha256')!=evidence.get('approvalEvidenceSha256') or
+        manifest.get('scanEvidenceSha256')!=evidence.get('scanEvidenceSha256') or
+        not SHA256.fullmatch(str(manifest.get('scanEvidenceSha256',''))) or
+        manifest.get('reviewedImageIds')!=evidence.get('imageIds') or
+        not isinstance(manifest.get('reviewedImageIds'),dict) or
+        any(not re.fullmatch(r'sha256:[a-f0-9]{64}',
+                str(manifest['reviewedImageIds'].get(k,'')))
+            for k in ('backend','frontend','database')) or
         not SHA256.fullmatch(str(manifest.get('candidateManifestSha256',''))) or
         not SHA256.fullmatch(str(evidence.get('approvalEvidenceSha256',''))) or
         not isinstance(manifest.get('offline'),dict) or
@@ -111,6 +118,8 @@ def review_new_release(release_dir, public_key, archive, evidence_file,
         'archiveBytes':evidence['archiveBytes'],
         'signedManifestSha256':evidence['signedManifestSha256'],
         'publisherSpkiSha256':trusted,
+        'scanEvidenceSha256':manifest['scanEvidenceSha256'],
+        'reviewedImageIds':manifest['reviewedImageIds'],
         'backendRevision':source['backendRevision'],
         'frontendRevision':source['frontendRevision'],
         'allArchiveMembersVerified':check['all_declared_payload_files_matched'],

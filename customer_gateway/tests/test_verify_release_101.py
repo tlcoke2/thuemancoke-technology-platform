@@ -49,6 +49,10 @@ class Clinical101ReleaseTests(unittest.TestCase):
             'format':1,'status':'APPROVED CLINICAL RELEASE 1.0.1',
             'releaseVersion':'1.0.1','targetReleaseVersion':'1.0.1',
             'candidateManifestSha256':'c'*64,'approvalEvidenceSha256':'d'*64,
+            'scanEvidenceSha256':'e'*64,
+            'reviewedImageIds':{
+                'backend':'sha256:'+'1'*64,'frontend':'sha256:'+'2'*64,
+                'database':'sha256:'+'3'*64},
             'source':{'backendRevision':self.backend,'frontendRevision':self.frontend},
             'approvalReferences':self.refs,'offline':{'createdAt':'2026-11-10T00:00:00.000Z'},
             'files':{key:{'sha256':hashlib.sha256(blob).hexdigest(),'bytes':len(blob)}
@@ -86,6 +90,8 @@ class Clinical101ReleaseTests(unittest.TestCase):
             'archiveFilename':self.archive.name,
             'signedManifestSha256':hashlib.sha256(raw).hexdigest(),
             'approvalEvidenceSha256':'d'*64,
+            'scanEvidenceSha256':'e'*64,
+            'imageIds':self.manifest['reviewedImageIds'],
             'source':self.manifest['source'],
         }
         # The standard test fixture is compressible and may be under 10KB.
@@ -166,3 +172,14 @@ class Clinical101ReleaseTests(unittest.TestCase):
 
 if __name__=='__main__':
     unittest.main()
+
+    def test_refuses_unsigned_or_mismatched_final_scanner_attestation(self):
+        self.manifest['scanEvidenceSha256']='0'*64
+        self.prepare()
+        with self.assertRaisesRegex(VerificationError,'offline image manifest drift'):
+            self.verify()
+        self.manifest['scanEvidenceSha256']='e'*64
+        self.manifest['reviewedImageIds']['frontend']='sha256:'+'f'*64
+        self.prepare()
+        with self.assertRaisesRegex(VerificationError,'offline image manifest drift'):
+            self.verify()
