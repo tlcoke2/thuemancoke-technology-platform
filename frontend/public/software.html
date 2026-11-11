@@ -148,7 +148,7 @@
     const approvedPanel = document.getElementById("approved-customer-download");
     const approvedLogin = document.getElementById("approved-download-login");
     if (typeof gateway === "string" && /^https:\/\/[^/]+$/.test(gateway)) {
-      approvedLogin.href = gateway + "/login";
+      approvedLogin.href = gateway + "/auth/login";
       approvedPanel.hidden = false;
     }
     const API = window.TCL_SOFTWARE_API;
