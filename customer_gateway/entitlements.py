@@ -55,8 +55,11 @@ class Denied(PermissionError):
 
 
 class Entitlements:
-    def __init__(self, engine, session_table, clock):
+    def __init__(self, engine, session_table, clock, release_id=RELEASE):
+        if release_id not in ('tec-epr-clinic-1.0.0','tec-epr-clinic-1.0.1'):
+            raise ValueError('Unknown customer release identity')
         self.engine, self.sessions, self.clock = engine, session_table, clock
+        self.release_id = release_id
 
     def _actor(self, c, session_hash, now):
         s = self.sessions
@@ -84,7 +87,7 @@ class Entitlements:
 
     def propose(self, session_hash, *, tenant_id, release_id, starts, expires,
                 contract_reference, approval_reference):
-        if (release_id != RELEASE or type(starts) is not int or type(expires) is not int
+        if (release_id != self.release_id or type(starts) is not int or type(expires) is not int
                 or starts >= expires or any(not isinstance(v, str) or not v.strip()
                 or len(v) > 160 for v in (contract_reference, approval_reference))):
             raise Denied('Approved release and documented contract/approval required')
