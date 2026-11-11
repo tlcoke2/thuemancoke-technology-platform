@@ -641,12 +641,15 @@ def from_environment():
         # Any attempt to activate quarantined 1.0.0, or to supply only one
         # release flag, remains an immediate FAIL-CLOSED startup error.
         if not enabled or not approved:
-            raise RuntimeError("Both independently approved release/download switches are required")
+            raise RuntimeError("SECURITY HOLD: TEC EPR Clinic Edition 1.0.0 is quarantined; both 1.0.1 controls are required")
         try:
             from .release_101_config import approved_release_101
         except ImportError:
             from release_101_config import approved_release_101
-        release,etag=approved_release_101(os.environ)
+        try:
+            release,etag=approved_release_101(os.environ)
+        except ValueError as exc:
+            raise RuntimeError("SECURITY HOLD: TEC EPR Clinic Edition 1.0.0 is quarantined; independently verified fresh-only 1.0.1 release evidence is required") from exc
 
     config = Config(os.environ["GATEWAY_ORIGIN"], os.environ["WORKOS_CLIENT_ID"],
                     os.environ["WORKOS_API_KEY"], os.environ.get("GATEWAY_AUTH_ENABLED") == "true",
