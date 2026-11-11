@@ -13,6 +13,22 @@ export default defineConfig(({ mode }) => {
   if (mode === 'staging' && api.hostname === 'api.thuemancokelimited.com') {
     throw new Error('Staging must not use production software intake');
   }
+  // The public static site never distributes archives or grants customer
+  // entitlements: an approved gateway is the only permitted download entry.
+  const gatewayValue = env.VITE_TCL_CUSTOMER_GATEWAY_ORIGIN || '';
+  const portalEnabled = env.VITE_TCL_CUSTOMER_DOWNLOAD_PORTAL_ENABLED === 'true';
+  if (portalEnabled && !gatewayValue) throw new Error('Approved customer gateway origin required before download portal may be shown');
+  if (portalEnabled && mode === 'staging') throw new Error('Staging must not advertise production customer downloads');
+  let gatewayOrigin = null;
+  if (gatewayValue) {
+    const g = new URL(gatewayValue);
+    if (g.protocol !== 'https:' || g.username || g.password || g.search || g.hash ||
+        g.pathname !== '/' || !g.hostname.endsWith('.thuemancokelimited.com') ||
+        g.hostname.includes('staging')) {
+      throw new Error('Customer gateway must use an approved dedicated TCL HTTPS hostname');
+    }
+    gatewayOrigin = g.origin;
+  }
   return {
   // Isolate the existing contact form as well as software/CRM pages in staging.
   define: mode === 'staging' ? { 'import.meta.env.VITE_API_URL': JSON.stringify(api.origin) } : {},
@@ -26,7 +42,8 @@ export default defineConfig(({ mode }) => {
         }
       }
       this.emitFile({ type: 'asset', fileName: 'software-config.js',
-        source: `window.TCL_SOFTWARE_API = ${JSON.stringify(api.origin)};\n` });
+        source: `window.TCL_SOFTWARE_API = ${JSON.stringify(api.origin)};\n` +
+          `window.TCL_CUSTOMER_GATEWAY_URL = ${JSON.stringify(portalEnabled ? gatewayOrigin : null)};\n` });
     },
   }],
   base: "./",
