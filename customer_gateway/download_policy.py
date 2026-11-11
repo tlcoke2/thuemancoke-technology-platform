@@ -87,7 +87,8 @@ def _utc(value: datetime) -> datetime:
 def authorize_download(*, enabled: bool, trusted_issuer: str, principal: Principal,
                        membership: Membership, grant: Grant, requested_tenant: str,
                        requested_release: str, now: datetime,
-                       release_withdrawn: bool = True) -> DownloadDecision:
+                       release_withdrawn: bool = True,
+                       release: Release = CLINIC_1_0_0) -> DownloadDecision:
     """Return a <=5-minute decision, not an entitlement or download URL.
 
     Explicit withdrawal state is required: an omitted release status denies access.
@@ -95,6 +96,11 @@ def authorize_download(*, enabled: bool, trusted_issuer: str, principal: Princip
     """
     if enabled is not True or release_withdrawn is not False:
         raise Denied("Downloads unavailable")
+    if (not isinstance(release, Release) or release.bucket != "tec-epr-private-releases"
+            or release.publisher_spki_sha256 != CLINIC_1_0_0.publisher_spki_sha256
+            or not release.object_key.startswith("tec-epr/clinic-edition/")
+            or release.id not in ("tec-epr-clinic-1.0.0", "tec-epr-clinic-1.0.1")):
+        raise Denied("Unsigned or unreviewed release cannot be distributed")
     if not trusted_issuer or principal.issuer != trusted_issuer or not principal.subject:
         raise Denied("Untrusted identity")
     if principal.email_verified is not True:
@@ -109,7 +115,7 @@ def authorize_download(*, enabled: bool, trusted_issuer: str, principal: Princip
             or membership.tenant_id != requested_tenant
             or grant.tenant_id != requested_tenant):
         raise Denied("Tenant access denied")
-    if (requested_release != CLINIC_1_0_0.id or grant.release_id != requested_release
+    if (requested_release != release.id or grant.release_id != requested_release
             or grant.state != "approved" or not grant.id.strip()
             or not grant.approval_reference.strip() or not grant.contract_reference.strip()):
         raise Denied("Approved grant required")
@@ -121,5 +127,5 @@ def authorize_download(*, enabled: bool, trusted_issuer: str, principal: Princip
     ttl = min(300, int((end-current).total_seconds()), int((session_end-current).total_seconds()))
     if ttl < 1:
         raise Denied("Insufficient validity remaining")
-    return DownloadDecision(grant.id, requested_tenant, CLINIC_1_0_0,
+    return DownloadDecision(grant.id, requested_tenant, release,
                             current + timedelta(seconds=ttl), ttl)
