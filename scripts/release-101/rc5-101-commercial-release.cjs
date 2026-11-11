@@ -174,6 +174,8 @@ async function perform(o){
  const outputDir=path.join(workspace,'SIGNED-1.0.1-RELEASE');fs.mkdirSync(outputDir,{recursive:true});
  const output=path.join(outputDir,'TEC-EPR-Clinic-Edition-1.0.1-fresh-'+MANIFEST_SHA.slice(0,12)+'.tar.gz');
  hold(!fs.existsSync(output),'Immutable signed 1.0.1 output already exists; do not re-sign or overwrite');
+ const passphraseFile=process.env.TEC_PUBLISHER_KEY_PASSPHRASE_FILE;
+ if(passphraseFile)fileRequirement(passphraseFile,'Protected publisher passphrase');
  const signed=await backendFinalizer.seal({candidateDir:candidate.base,approvalFile,
   scanEvidencePath:candidate.scan,privateKeyPath:privateKey,outputPath:output,
   ...(passphraseFile?{passphraseFile:path.resolve(passphraseFile)}:{})});
