@@ -58,3 +58,9 @@ test('AWS publisher profile must be explicit; no environment keys exported',()=>
   else process.env.AWS_SECRET_ACCESS_KEY=before;
  }
 });
+test('owner publisher passphrase variable is resolved only from protected environment, not CLI',()=>{
+ const fs=require('node:fs');const path=require('node:path');
+ const code=fs.readFileSync(path.join(__dirname,'rc5-101-commercial-release.cjs'),'utf8');
+ assert.match(code,/const passphraseFile=process\.env\.TEC_PUBLISHER_KEY_PASSPHRASE_FILE;/);
+ assert.doesNotMatch(code,/'--passphrase'/);
+});
