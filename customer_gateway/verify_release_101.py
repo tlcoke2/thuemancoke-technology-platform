@@ -56,6 +56,8 @@ def review_new_release(release_dir, public_key, archive, evidence_file,
     if (not SHA256.fullmatch(trusted) or not isinstance(evidence,dict) or
         evidence.get('status')!='SIGNED_PENDING_COMMERCIAL_GATEWAY_APPROVAL' or
         evidence.get('releaseVersion')!=VERSION or
+        evidence.get('releaseScope')!='FRESH_INSTALLATIONS_ONLY' or
+        evidence.get('upgradeSupported') is not False or
         evidence.get('gatewayActivated') is not False or
         evidence.get('publisherSpkiSha256')!=trusted or
         not SHA256.fullmatch(str(evidence.get('archiveSha256',''))) or
@@ -89,6 +91,8 @@ def review_new_release(release_dir, public_key, archive, evidence_file,
         expected_version=VERSION,expected_status=APPROVED)
     manifest=_json_file(Path(release_dir)/'manifest.json')
     if (manifest.get('releaseVersion')!=VERSION or
+        manifest.get('releaseScope')!='FRESH_INSTALLATIONS_ONLY' or
+        manifest.get('upgradeSupported') is not False or
         manifest.get('status')!=APPROVED or
         manifest.get('targetReleaseVersion')!=VERSION or
         manifest.get('source')!=source or
@@ -113,6 +117,9 @@ def review_new_release(release_dir, public_key, archive, evidence_file,
     return {
         'assessment':'VERIFIED_1_0_1_ARCHIVE_PENDING_HUMAN_GATEWAY_APPROVAL',
         'releaseVersion':VERSION,
+        'releaseScope':'FRESH_INSTALLATIONS_ONLY',
+        'upgradeSupported':False,
+        'candidateManifestSha256':manifest['candidateManifestSha256'],
         'releaseId':release.id,
         'verifiedArchiveSha256':check['archive_sha256'],
         'archiveBytes':evidence['archiveBytes'],
