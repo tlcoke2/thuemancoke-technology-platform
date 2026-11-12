@@ -27,12 +27,39 @@ Extract this ZIP into a new folder, for example `C:\My_Applications\TEC-EPR-RC5-
 After reviewing the previously given approvals and securely locating the existing RSA publisher private key, run this **single final command** in PowerShell, substituting only actual existing owner-controlled local paths and the private AWS CLI profile name:
 
 ```powershell
-.\Run-TEC-EPR-101-Commercial-Release.cmd `
-  --approval "C:\<OWNER-PRIVATE-FOLDER>\APPROVED-TEC-EPR-1.0.1.json" `
-  --private-key "C:\<OWNER-PRIVATE-FOLDER>\publisher-private.pem" `
-  --public-key "C:\My_Applications\TEC-EPR-Publisher-Trust\publisher-public-1.0.0.pem" `
-  --aws-profile "<BUCKET-SCOPED-R2-PUBLISHER-PROFILE>"
+$workspace = Join-Path $env:USERPROFILE 'TEC-EPR-1.0.1-FRESH-RELEASE-OWNER'
+$template = Join-Path $workspace 'APPROVAL-TEMPLATE-FRESH-ONLY-NOT-APPROVED.json'
+$approval = Join-Path $workspace 'APPROVED-TEC-EPR-1.0.1.json'
+if (!(Test-Path -LiteralPath $approval)) { Copy-Item -LiteralPath $template -Destination $approval }
+notepad.exe $approval
 ```
+
+In Notepad, accurately record the already accepted **frozen 1.0.1 candidate** approval references, actual reviewer identities, UTC dates, and evidence paths; set the top-level assertion to `APPROVED_FOR_COMMERCIAL_SIGNING` only if supported. Each of the five applicable gates must have `approved:true`. Keep `existingCustomerUpgrade.approved:false`, `notApplicable:true`, `scope:"FRESH_INSTALLATIONS_ONLY"` (include a real reviewer/date/reason reference). Never invent the reviewer/date or borrow unrelated 1.0.0 sign-off references.
+
+Identify the actual existing R2 CLI profile and the owner-controlled RSA4096 key paths **locally**:
+
+```powershell
+aws configure list-profiles
+Test-Path 'C:\My_Applications\TEC-EPR-Publisher-Keys-1.0.0\private.pem'
+Test-Path 'C:\My_Applications\TEC-EPR-Publisher-Trust\publisher-public-1.0.0.pem'
+```
+
+The private PEM path shown above was previously reported, **not independently verified**. If it is absent, locate the real protected key rather than generating/replacing the established publisher identity. The profile must be an actual configured, bucket-scoped R2 publisher profile; example names are **never executable arguments**.
+
+Then from the extracted tools directory run, substituting only verified local file paths where needed:
+
+```powershell
+$r2Profile = Read-Host 'Enter the actual existing dedicated R2 publisher AWS CLI profile'
+$privateKey = 'C:\My_Applications\TEC-EPR-Publisher-Keys-1.0.0\private.pem'
+$publicKey = 'C:\My_Applications\TEC-EPR-Publisher-Trust\publisher-public-1.0.0.pem'
+if (!(Test-Path -LiteralPath $approval -PathType Leaf) -or
+    !(Test-Path -LiteralPath $privateKey -PathType Leaf) -or
+    !(Test-Path -LiteralPath $publicKey -PathType Leaf)) { throw 'Required approved evidence or local signing key file missing' }
+if ($r2Profile -notin @(aws configure list-profiles)) { throw 'Selected R2 AWS CLI profile not configured' }
+.\Run-TEC-EPR-101-Commercial-Release.cmd --approval $approval --private-key $privateKey --public-key $publicKey --aws-profile $r2Profile
+```
+
+**Correction recorded 11 Nov 2026:** Old README examples contained literal placeholders such as `C:\<OWNER-PRIVATE-FOLDER>` and `<BUCKET-SCOPED-R2-PUBLISHER-PROFILE>`; executing those verbatim fails before signing, as expected. The canonical template path is printed by `Check-TEC-EPR-101-Release.cmd`. No new download of the utility bundle is required to follow these corrected instructions.
 
 For an encrypted private PEM key, provide an existing local password file through the environment variable `TEC_PUBLISHER_KEY_PASSPHRASE_FILE`. Never paste the passphrase into the command line or chat.
 
