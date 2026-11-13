@@ -8,14 +8,14 @@ import json
 import re
 from pathlib import PurePosixPath
 try:
-    from .download_policy import Release, CLINIC_1_0_0
+    from .download_policy import Release, CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256
 except ImportError:
-    from download_policy import Release, CLINIC_1_0_0
+    from download_policy import Release, CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256
 
 SOURCE_BACKEND='91b848bfccb0951e010be8f566b4146a53b6a586'
 SOURCE_FRONTEND='345384515c70dd7f6569e96f5c38b749b4ff986d'
 SOURCE_MANIFEST_SHA256='66907861e79d59a463dbb3b0d178bfe5fba3dfb85c8c8347c152e0cbf8f58218'
-FINGERPRINT='6bd4d0bbe4f81fea83ab61875eca6a96c7f9310e765c3cbe89c05b7a28a0a733'
+FINGERPRINT=PUBLISHER_101_SPKI_SHA256
 SHA=re.compile(r'^[0-9a-f]{64}$')
 ETAG=re.compile(r'^[0-9a-f]{32}(?:-[1-9][0-9]*)?$')
 NAME=re.compile(r'^TEC-EPR-Clinic-Edition-1\.0\.1-[A-Za-z0-9][A-Za-z0-9._-]{0,100}\.tar\.gz$')
@@ -67,6 +67,8 @@ def approved_release_101(environ):
         evidence.get('upgradeSupported') is not False or
         evidence.get('gatewayActivated') is not False or
         evidence.get('publisherSpkiSha256')!=FINGERPRINT or
+        evidence.get('previousPublisherSpkiSha256')!=CLINIC_1_0_0.publisher_spki_sha256 or
+        not SHA.fullmatch(str(evidence.get('publisherTrustRotationApprovalSha256',''))) or
         type(evidence.get('archiveBytes')) is not int or
         evidence['archiveBytes']<=10000 or
         not isinstance(evidence.get('signedManifestSha256'),str) or
@@ -81,6 +83,8 @@ def approved_release_101(environ):
         report.get('archiveBytes')!=evidence['archiveBytes'] or
         report.get('signedManifestSha256')!=evidence['signedManifestSha256'] or
         report.get('publisherSpkiSha256')!=FINGERPRINT or
+        report.get('previousPublisherSpkiSha256')!=CLINIC_1_0_0.publisher_spki_sha256 or
+        report.get('publisherTrustRotationApprovalSha256')!=evidence.get('publisherTrustRotationApprovalSha256') or
         report.get('backendRevision')!=SOURCE_BACKEND or
         report.get('frontendRevision')!=SOURCE_FRONTEND or
         report.get('allArchiveMembersVerified') is not True or
@@ -107,6 +111,6 @@ def approved_release_101(environ):
     obj=Release(id='tec-epr-clinic-1.0.1',bucket='tec-epr-private-releases',
         object_key='tec-epr/clinic-edition/1.0.1/'+fname,
         sha256=sha,bytes=evidence['archiveBytes'],publisher_spki_sha256=FINGERPRINT)
-    if obj.publisher_spki_sha256!=CLINIC_1_0_0.publisher_spki_sha256:
-        raise ValueError('Unexpected publisher key change')
+    if obj.publisher_spki_sha256!=PUBLISHER_101_SPKI_SHA256:
+        raise ValueError('Unexpected 1.0.1 publisher identity')
     return obj,etag
