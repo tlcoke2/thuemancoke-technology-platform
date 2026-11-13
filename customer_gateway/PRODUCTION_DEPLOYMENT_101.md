@@ -28,6 +28,14 @@ Owner's actual `railway status`, `railway environment list` and `railway service
 
 This is an operator-provided CLI inventory, not access to Railway management APIs. It does not prove ownership of the existing production `Postgres` service; treat it as protected and reserved. **The production environment already exists. Do not create another Railway environment.** Create only an additional gateway app service and dedicated DB inside the existing `production` environment after owner review. No existing service, Postgres volume or deployment has been changed by this inventory.
 
+## Railway source configuration (13 November owner build error)
+
+A newly attempted service was configured with GitHub branch `main` and root `/customer-gateway` (hyphen). This path does **not** exist on `main`: the reviewed gateway lives under `customer_gateway` (underscore), on `release/tec-epr-101-fresh-private-gateway-20261111` (PR #40, stacked on the staging gateway PR #38). Railway `service list --environment production` did not yet show the new service; check the production canvas for an unapplied/pending change or a service created in another environment before creating anything again.
+
+For the **new dedicated gateway service only**, use Railway Settings → Source: repo `tlcoke2/thuemancoke-technology-platform`, branch `release/tec-epr-101-fresh-private-gateway-20261111`; Settings → Root Directory: exactly `/customer_gateway`; Settings → Build: Dockerfile auto-detected as `Dockerfile` at the service root. Do not point to `/customer-gateway` or use the repo-root `main` branch. The root's `Dockerfile` copies files relative to `customer_gateway`, so applying a repo-level Dockerfile with wrong context can break COPY statements. Until an immutable reviewed release is merged and approved for production, treat this branch deployment as **pre-activation production candidate** only: set `GATEWAY_DOWNLOADS_ENABLED=false`, `GATEWAY_RELEASE_APPROVED=false`; do not configure any real customer grant or expose the login link. Either disable automatic deploys or require manual approvals/pinned commits.
+
+Note that a successful **build** is not a successful production startup: `from_environment()` explicitly refuses startup without a dedicated commercial database and an approved production WorkOS client/MFA and origin. Do not bypass those checks, reuse CRM Postgres or staging WorkOS keys, or modify the currently online public API service. Record real service ID and verify `railway service list --environment production` now includes the new service before doing any database initialization.
+
 ## Gate P0 — private infrastructure inventory (read only)
 
 From the existing authenticated Windows terminal:
