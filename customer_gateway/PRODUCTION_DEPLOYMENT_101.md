@@ -45,6 +45,12 @@ A reviewed Node.js owner-run provisioning utility is prepared for the already-au
 
 After provisioning, the gateway can **remain offline** because production WorkOS/HTTPS domain and separate schema approvals are intentionally not automatically generated. The owner/Work operator must finish those provider-specific approvals using authenticated Railway, WorkOS and Cloudflare provider consoles, then perform isolated production DB bootstrap and smoke gates P2–P5. Do not bypass `APP_ENV=production` and the existing fail-closed `from_environment` checks to make a partially configured service report healthy. New production Postgres provisioning can incur Railway charges.
 
+## Railway name reservation finding — owner CLI, 13 November 2026
+
+A verified production-linked CLI session reports project `bountiful-curiosity`, production environment ID `91b2c4bd-f1df-48b9-bb87-4cecdb756250`; `railway add --service tcl-customer-gateway-production --json` responds **“A service named \"tcl-customer-gateway-production\" already exists in this project”**, while production's `railway service list` displays only the existing public API and Postgres. **Do not repeatedly create the same service or destroy/reset anything.** Railway service names are project-global, but service instances are environment-specific: the name may already belong to a staging/other-environment service or a service with no current production instance.
+
+Read-only first: `railway service list --environment staging` and `railway service list --environment production`. In the Railway project **production** canvas also inspect pending/staged changes, and project-level services in Settings. If the reserved service belongs to a genuine existing candidate in another environment, stage a selective environment sync of **only the gateway service** into production; carefully inspect proposed service variables and other staged changes, and **do not import staging WorkOS secrets or database/volume** or click a blanket deploy. If no safe service instance can be attached, use a clearly different new project-wide unique name for a dedicated gateway, without renaming or deleting existing services. Railway support independently confirms service names are project-wide, and environment sync is the intended reuse mechanism. Owner must still configure dedicated production DB, production WorkOS, HTTPS hostname and safeguards before live service deployment.
+
 ## Gate P0 — private infrastructure inventory (read only)
 
 From the existing authenticated Windows terminal:
