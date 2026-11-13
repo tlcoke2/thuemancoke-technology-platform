@@ -1,0 +1,51 @@
+{
+  "assertion": "PENDING_REVIEW_REPLACE_ONLY_WITH_VERIFIED_APPROVALS",
+  "releaseScope": "FRESH_INSTALLATIONS_ONLY",
+  "releaseVersion": "1.0.1",
+  "candidateManifestSha256": "66907861e79d59a463dbb3b0d178bfe5fba3dfb85c8c8347c152e0cbf8f58218",
+  "source": {
+    "backendRevision": "91b848bfccb0951e010be8f566b4146a53b6a586",
+    "frontendRevision": "345384515c70dd7f6569e96f5c38b749b4ff986d"
+  },
+  "review": {
+    "medicalDirector": {
+      "approved": false,
+      "reviewer": "",
+      "approvedAtUtc": "",
+      "evidenceReference": ""
+    },
+    "security": {
+      "approved": false,
+      "reviewer": "",
+      "approvedAtUtc": "",
+      "evidenceReference": ""
+    },
+    "existingCustomerUpgrade": {
+      "approved": false,
+      "notApplicable": true,
+      "scope": "FRESH_INSTALLATIONS_ONLY",
+      "reviewer": "",
+      "approvedAtUtc": "",
+      "evidenceReference": ""
+    },
+    "offHostDR": {
+      "approved": false,
+      "reviewer": "",
+      "approvedAtUtc": "",
+      "evidenceReference": ""
+    },
+    "publisher": {
+      "approved": false,
+      "reviewer": "",
+      "approvedAtUtc": "",
+      "evidenceReference": ""
+    },
+    "gateway": {
+      "approved": false,
+      "reviewer": "",
+      "approvedAtUtc": "",
+      "evidenceReference": ""
+    }
+  },
+  "notes": "This is a template only. Copy documented earlier sign-offs/references accurately. Existing-customer upgrades stay unsupported."
+}
