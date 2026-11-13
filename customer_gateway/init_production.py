@@ -26,8 +26,11 @@ FORBIDDEN_NAMES = {"postgres", "template0", "template1", "railway", "gateway_tes
 def initialize_empty(connection):
     """All-or-nothing: refuse any table, view, materialized view or FK collision."""
     inspector = inspect(connection)
-    if (inspector.get_table_names() or inspector.get_view_names()
-            or inspector.get_materialized_view_names()):
+    # PostgreSQL supports materialized-view introspection. In isolated SQLite
+    # regressions the reflection API is intentionally unimplemented.
+    materialized = (inspector.get_materialized_view_names()
+                    if connection.dialect.name == "postgresql" else [])
+    if inspector.get_table_names() or inspector.get_view_names() or materialized:
         raise RuntimeError("Production DB is not empty; no schema changed")
     # These are three independent, existing staging-proven metadata groups.
     # In production all are created inside one database transaction.
