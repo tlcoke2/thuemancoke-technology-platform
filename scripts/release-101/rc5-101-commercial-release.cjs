@@ -12,7 +12,7 @@ const MANIFEST_SHA='66907861e79d59a463dbb3b0d178bfe5fba3dfb85c8c8347c152e0cbf8f5
 const IMAGES_SHA='bbd30c1729e5d00219756ba58568ff4643de8e0412252a1c0d8890baca569c20';
 const LEGACY_PUBLISHER_SPKI='6bd4d0bbe4f81fea83ab61875eca6a96c7f9310e765c3cbe89c05b7a28a0a733';
 const PUBLISHER_SPKI='b45e340ab53f4a50c2c38bfd8adfd481421568f346ab5cfb30a838d0855c269a';
-const BACKEND_HEAD='1567070a857022b6cf025f8ead87417c6bd55207';
+const BACKEND_HEAD='4db43f051f6a4534955902d81e784b355cadaecf';
 const GATEWAY_HEAD='b3e137f75d6e41a5885367efc65025e2823cfbea';
 const BACKEND_BRANCH='review/rc5-101-synthetic-image-rehearsal-20261110';
 const GATEWAY_BRANCH='release/tec-epr-101-fresh-private-gateway-20261111';
@@ -32,14 +32,17 @@ function run(bin,args,{env=process.env,quiet=false,timeout=300000}={}){
 function parse(argv){const o={mode:'plan'};let seenMode=false;
  for(let i=0;i<argv.length;i++){
   const x=argv[i];if(x==='--confirm-owner-release'){hold(o.confirm!==true,'Duplicate owner confirmation');o.confirm=true;continue}
+  if(x==='--confirm-owner-resume'){hold(o.resumeConfirm!==true,'Duplicate owner resume confirmation');o.resumeConfirm=true;continue}
   const map={'--mode':'mode','--approval':'approval','--private-key':'privateKey','--public-key':'publicKey',
    '--aws-profile':'profile','--rotation-approval':'rotationApproval','--workspace':'workspace','--candidate-stage':'candidateStage'};
   hold(Object.hasOwn(map,x)&&!(map[x]==='mode'?seenMode:Object.hasOwn(o,map[x])),'Unsupported or repeated argument: '+x);
   if(map[x]==='mode')seenMode=true;
   const val=argv[++i];hold(typeof val==='string'&&val&&!val.startsWith('--'),'Missing CLI value: '+x);o[map[x]]=val;
  }
- hold(['plan','release'].includes(o.mode),'Use --mode plan or --mode release');
+ hold(['plan','release','resume'].includes(o.mode),'Use --mode plan, release or resume');
  hold(o.mode!=='release'||o.confirm===true,'Release requires explicit --confirm-owner-release');
+ hold(o.mode!=='resume'||o.resumeConfirm===true,'Resume requires explicit --confirm-owner-resume');
+ hold(o.mode!=='resume'||o.confirm!==true,'Resume cannot request new signing');
  return o;
 }
 function defaultWorkspace(){return path.join(os.homedir(),'TEC-EPR-1.0.1-FRESH-RELEASE-OWNER')}
@@ -179,7 +182,7 @@ async function perform(o){
  const approvalFile=fileRequirement(o.approval||process.env.TEC_101_APPROVAL_JSON,'Owner 1.0.1 approval JSON');
  const rotationApprovalFile=fileRequirement(o.rotationApproval||process.env.TEC_101_ROTATION_APPROVAL_JSON,
   'New 1.0.1 publisher trust rotation authorisation');
- const privateKey=fileRequirement(o.privateKey||process.env.TEC_PUBLISHER_PRIVATE_KEY_PATH,'Offline publisher private key');
+ const privateKey=o.mode==='resume'?null:fileRequirement(o.privateKey||process.env.TEC_PUBLISHER_PRIVATE_KEY_PATH,'Offline publisher private key');
  const publicKey=fileRequirement(o.publicKey||process.env.TEC_PUBLISHER_TRUSTED_PUBLIC_KEY_PATH,'Independently trusted publisher public key');
  const approval=readObject(approvalFile);verifyApproval(approval);
  const rotationRaw=fs.readFileSync(rotationApprovalFile);
@@ -200,16 +203,50 @@ async function perform(o){
   'Trusted publisher public verification key fingerprint mismatch');
  const outputDir=path.join(workspace,'SIGNED-1.0.1-RELEASE');fs.mkdirSync(outputDir,{recursive:true});
  const output=path.join(outputDir,'TEC-EPR-Clinic-Edition-1.0.1-fresh-'+MANIFEST_SHA.slice(0,12)+'.tar.gz');
- hold(!fs.existsSync(output),'Immutable signed 1.0.1 output already exists; do not re-sign or overwrite');
- const passphraseFile=process.env.TEC_PUBLISHER_KEY_PASSPHRASE_FILE;
- if(passphraseFile)fileRequirement(passphraseFile,'Protected publisher passphrase');
- console.log('STAGE_RC5_101_SIGNING_NEW_RSA4096_TRUST_ROTATION');
- const signed=await backendFinalizer.seal({candidateDir:candidate.base,approvalFile,
-  scanEvidencePath:candidate.scan,privateKeyPath:privateKey,outputPath:output,
-  rotationApprovalFile,
-  ...(passphraseFile?{passphraseFile:path.resolve(passphraseFile)}:{})});
+ if(o.mode==='resume'){
+  hold(fs.existsSync(output)&&fs.statSync(output).isFile()&&
+    fs.existsSync(output+'.release-evidence.json')&&fs.existsSync(output+'.sha256'),
+    'Resume requires EXISTING signed archive and BOTH immutable evidence sidecars');
+ }else{
+  hold(!fs.existsSync(output),'Immutable signed 1.0.1 output already exists; do not re-sign or overwrite');
+ }
+ let signed;
+ if(o.mode==='resume'){
+  // Controlled one-way continuation from the SAME owner-signed archive.
+  // Never read a private PEM/passphrase; never call seal; never change the archive.
+  signed=readObject(output+'.release-evidence.json');
+  hold(signed.status==='SIGNED_PENDING_COMMERCIAL_GATEWAY_APPROVAL'&&
+    signed.releaseVersion===RELEASE&&signed.releaseScope===FRESH&&
+    signed.upgradeSupported===false&&signed.gatewayActivated===false&&
+    signed.archiveFilename===path.basename(output)&&
+    HEX.test(signed.archiveSha256||'')&&
+    signed.publisherSpkiSha256===PUBLISHER_SPKI&&
+    signed.previousPublisherSpkiSha256===LEGACY_PUBLISHER_SPKI&&
+    signed.publisherTrustRotationApprovalSha256===sha(rotationRaw)&&
+    signed.source?.backendRevision===SOURCE_BACKEND&&
+    signed.source?.frontendRevision===SOURCE_FRONTEND&&
+    signed.imageIds&&Object.keys(signed.imageIds).sort().join(',')==='backend,database,frontend',
+    'Cannot resume release with unsigned, unreviewed or mismatched 1.0.1 evidence');
+  hold(signed.archiveBytes===fs.statSync(output).size&&
+    (await hashFile(output))===signed.archiveSha256,
+    'Existing signed archive differs from its SHA256/byte evidence');
+  const sidecar=fs.readFileSync(output+'.sha256','utf8').trim();
+  hold(sidecar===signed.archiveSha256+'  '+path.basename(output),
+    'Existing immutable .sha256 sidecar does not match signed archive');
+  console.log('PASS_RC5_101_EXISTING_SIGNED_ARCHIVE_REUSED_WITHOUT_RESIGNING');
+ }else{
+  const passphraseFile=process.env.TEC_PUBLISHER_KEY_PASSPHRASE_FILE;
+  if(passphraseFile)fileRequirement(passphraseFile,'Protected publisher passphrase');
+  console.log('STAGE_RC5_101_SIGNING_NEW_RSA4096_TRUST_ROTATION');
+  signed=await backendFinalizer.seal({candidateDir:candidate.base,approvalFile,
+   scanEvidencePath:candidate.scan,privateKeyPath:privateKey,outputPath:output,
+   rotationApprovalFile,
+   ...(passphraseFile?{passphraseFile:path.resolve(passphraseFile)}:{})});
+ }
  console.log('STAGE_RC5_101_INDEPENDENT_RSA_ARCHIVE_VERIFICATION');
- const independently=await backendVerify.verify(output,publicKey);
+ const independently=await backendVerify.verify(output,publicKey).catch(e=>{
+  throw Error('HOLD_RC5_101_COMMERCIAL_RELEASE: independent RSA archive verifier: '+e.message);
+ });
  hold(independently.assessment==='PASS_SIGNED_COMMERCIAL_ARCHIVE_AUTHENTICITY_AND_CONTENTS'&&
   independently.archiveSha256===signed.archiveSha256&&independently.publisherSpkiSha256===PUBLISHER_SPKI&&
   independently.publisherTrustRotationApprovalSha256===sha(rotationRaw)&&
