@@ -36,6 +36,12 @@ For the **new dedicated gateway service only**, use Railway Settings → Source:
 
 Note that a successful **build** is not a successful production startup: `from_environment()` explicitly refuses startup without a dedicated commercial database and an approved production WorkOS client/MFA and origin. Do not bypass those checks, reuse CRM Postgres or staging WorkOS keys, or modify the currently online public API service. Record real service ID and verify `railway service list --environment production` now includes the new service before doing any database initialization.
 
+## Owner-side single-command automation available (13 November 2026)
+
+A reviewed Node.js owner-run provisioning utility is prepared for the already-authenticated Windows Railway CLI: `TCL-Gateway-Production-Autoprovision.cjs`, local SHA-256 `309666ceea595ad2f56df985347c2b658029fb3e12bdccdc2f1613945d96ce35`. Its command is `node TCL-Gateway-Production-Autoprovision.cjs --provision` after verifying the SHA. A fully mocked local CLI regression exercised service list parsing, safe create, separate PostgreSQL provisioning, app-only download-deny variables, correct source branch and `/customer_gateway` root; **it has not been run against the owner's Railway account**. The utility is supplied to the owner as a chat attachment, not installed into production. It uses an isolated Railway CLI link and checks exact TCL project ID and `production` environment before mutations; preserves the existing production API and `Postgres`, creates a new named customer gateway service if absent and a distinct new PostgreSQL service, and records the new DB service name locally. It does not copy staging WorkOS credentials or clinical databases, inspect secrets, generate approval references, deploy software manually, initialize production tables, or enable downloads.
+
+After provisioning, the gateway can **remain offline** because production WorkOS/HTTPS domain and separate schema approvals are intentionally not automatically generated. The owner/Work operator must finish those provider-specific approvals using authenticated Railway, WorkOS and Cloudflare provider consoles, then perform isolated production DB bootstrap and smoke gates P2–P5. Do not bypass `APP_ENV=production` and the existing fail-closed `from_environment` checks to make a partially configured service report healthy. New production Postgres provisioning can incur Railway charges.
+
 ## Gate P0 — private infrastructure inventory (read only)
 
 From the existing authenticated Windows terminal:
