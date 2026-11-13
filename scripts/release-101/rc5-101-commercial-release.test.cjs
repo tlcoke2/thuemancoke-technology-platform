@@ -21,6 +21,10 @@ test('owner release cannot start without explicit opt in',()=>{
  assert.equal(m.parse([]).mode,'plan');
  assert.throws(()=>m.parse(['--mode','release']),/explicit --confirm-owner-release/);
  assert.equal(m.parse(['--mode','release','--confirm-owner-release']).mode,'release');
+ assert.equal(m.parse(['--mode','resume','--confirm-owner-resume']).mode,'resume');
+ assert.throws(()=>m.parse(['--mode','resume']),/explicit --confirm-owner-resume/);
+ assert.throws(()=>m.parse(['--mode','resume','--confirm-owner-release','--confirm-owner-resume']),/cannot request new signing/);
+ assert.throws(()=>m.parse(['--mode','resume','--confirm-owner-resume','--confirm-owner-resume']),/Duplicate owner resume confirmation/);
  assert.equal(m.parse(['--mode','release','--confirm-owner-release','--rotation-approval','owner-rotation.json']).rotationApproval,'owner-rotation.json');
  assert.throws(()=>m.parse(['--mode','release','--confirm-owner-release','--confirm-owner-release']),/Duplicate owner confirmation/);
  assert.throws(()=>m.parse(['--mode','release','--unknown','yes']),/Unsupported/);
@@ -40,6 +44,15 @@ test('new signer trust rotation requires owner-approved metadata and new key fin
   const r=reviewedRotation();mutate(r);
   assert.throws(()=>m.verifyRotation(r),/trust rotation approval/);
  }
+});
+test('resume branch is strictly non-signing and requires pinned archive/evidence',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const code=fs.readFileSync(path.join(__dirname,'rc5-101-commercial-release.cjs'),'utf8');
+ assert.match(code,/if\(o\.mode==='resume'\)\{[\s\S]*?existing signed archive/i);
+ assert.match(code,/console\.log\('PASS_RC5_101_EXISTING_SIGNED_ARCHIVE_REUSED_WITHOUT_RESIGNING'\)/);
+ assert.match(code,/if\(o\.mode==='resume'\)\{[\s\S]*?\}else\{[\s\S]*?backendFinalizer\.seal\(/);
+ assert.match(code,/signed\.publisherTrustRotationApprovalSha256===sha\(rotationRaw\)/);
+ assert.match(code,/signed\.archiveBytes===fs\.statSync\(output\)\.size/);
 });
 test('release template is not a fabricated approval',()=>{
  const x=m.template();assert.notEqual(x.assertion,'APPROVED_FOR_COMMERCIAL_SIGNING');
