@@ -1,8 +1,12 @@
 """No real signing keys, R2 access or production data. Exact schema fakes only."""
 import json
 import unittest
-from download_policy import CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256
-from release_101_config import approved_release_101, SOURCE_BACKEND, SOURCE_FRONTEND, SOURCE_MANIFEST_SHA256, FINGERPRINT
+try:
+    from customer_gateway.download_policy import CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256
+    from customer_gateway.release_101_config import approved_release_101, SOURCE_BACKEND, SOURCE_FRONTEND, SOURCE_MANIFEST_SHA256, FINGERPRINT
+except ModuleNotFoundError:
+    from download_policy import CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256
+    from release_101_config import approved_release_101, SOURCE_BACKEND, SOURCE_FRONTEND, SOURCE_MANIFEST_SHA256, FINGERPRINT
 
 def fixture():
     images={'backend':'sha256:'+'a'*64,'frontend':'sha256:'+'b'*64,'database':'sha256:'+'c'*64}
