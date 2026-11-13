@@ -14,6 +14,20 @@
 
 The original gateway staging service is a successful functional baseline to **reuse**. It does not establish that a production-specific Railway service, separate PostgreSQL, production WorkOS client/API credentials and redirect allowlist, dedicated private hostname, Cloudflare records or a distinct owner-approved production release have been provisioned. DO NOT copy the staging database or provider secrets to the production tenant. The stage `PR #38` is draft; the 1.0.1 gateway `PR #40` is stacked on #38 and is also draft. Do not merge to main or enable downloads as a side effect of source review.
 
+## 13 November production Railway inventory — owner CLI verified
+
+Owner's actual `railway status`, `railway environment list` and `railway service list --environment production` show **two existing production services, neither the customer gateway**:
+
+| Environment/service | Existing resource | Guard |
+| --- | --- | --- |
+| `staging`, service `tcl-customer-gateway-staging` | Online, EU West, service `71cc8a41-9fcc-41ef-806e-4642b015d8ac`, separate staging DBs `Postgres-A7e0`, `Postgres-QQXu` | REUSE for staging comparison only; NEVER switch to production or migrate its DB. |
+| `production`, service `thuemancoke-technology-platform` | Existing public API `https://api.thuemancokelimited.com`, service `1987f0cf-3572-4618-8e70-5ee5dfe41132` | DO NOT deploy customer gateway files or set gateway WorkOS variables on this API. |
+| `production`, database service `Postgres` | Online, PostgreSQL 18, service `6044eb89-238f-497f-b1b9-469dc13695fc`, persistent production volume | Treat as ALREADY USED/UNVERIFIED ownership; NEVER repurpose, reset, migrate or connect the new gateway without an independent owner DB isolation assessment. |
+| `production`, `tcl-customer-gateway-production` | **NOT LISTED** | Dedicated new gateway app service still needs provisioning; do not claim it already exists. |
+| `production`, gateway-specific PostgreSQL | **NOT LISTED** | New, empty, dedicated gateway database must be provisioned separately. |
+
+This is an operator-provided CLI inventory, not access to Railway management APIs. It does not prove ownership of the existing production `Postgres` service; treat it as protected and reserved. **The production environment already exists. Do not create another Railway environment.** Create only an additional gateway app service and dedicated DB inside the existing `production` environment after owner review. No existing service, Postgres volume or deployment has been changed by this inventory.
+
 ## Gate P0 — private infrastructure inventory (read only)
 
 From the existing authenticated Windows terminal:
