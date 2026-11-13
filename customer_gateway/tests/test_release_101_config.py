@@ -1,6 +1,7 @@
 """No real signing keys, R2 access or production data. Exact schema fakes only."""
 import json
 import unittest
+from download_policy import CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256
 from release_101_config import approved_release_101, SOURCE_BACKEND, SOURCE_FRONTEND, SOURCE_MANIFEST_SHA256, FINGERPRINT
 
 def fixture():
@@ -8,6 +9,8 @@ def fixture():
     ev={'status':'SIGNED_PENDING_COMMERCIAL_GATEWAY_APPROVAL','releaseVersion':'1.0.1',
         'releaseScope':'FRESH_INSTALLATIONS_ONLY','upgradeSupported':False,'gatewayActivated':False,
         'publisherSpkiSha256':FINGERPRINT,
+        'previousPublisherSpkiSha256':CLINIC_1_0_0.publisher_spki_sha256,
+        'publisherTrustRotationApprovalSha256':'d'*64,
         'archiveFilename':'TEC-EPR-Clinic-Edition-1.0.1-release-123.tar.gz',
         'archiveSha256':'a'*64,'archiveBytes':400000000,
         'signedManifestSha256':'b'*64,'source':{'backendRevision':SOURCE_BACKEND,'frontendRevision':SOURCE_FRONTEND},
@@ -16,7 +19,10 @@ def fixture():
         'releaseVersion':'1.0.1','releaseScope':'FRESH_INSTALLATIONS_ONLY',
         'upgradeSupported':False,'verifiedArchiveSha256':ev['archiveSha256'],
         'archiveBytes':ev['archiveBytes'],'signedManifestSha256':ev['signedManifestSha256'],
-        'publisherSpkiSha256':FINGERPRINT,'backendRevision':SOURCE_BACKEND,
+        'publisherSpkiSha256':FINGERPRINT,
+        'previousPublisherSpkiSha256':CLINIC_1_0_0.publisher_spki_sha256,
+        'publisherTrustRotationApprovalSha256':ev['publisherTrustRotationApprovalSha256'],
+        'backendRevision':SOURCE_BACKEND,
         'frontendRevision':SOURCE_FRONTEND,'candidateManifestSha256':SOURCE_MANIFEST_SHA256,
         'allArchiveMembersVerified':True,'publisherSignatureVerified':True,
         'commercialReleaseApproved':False,'releaseGrantIssued':False,
@@ -38,6 +44,8 @@ class ReleaseConfigurationTests(unittest.TestCase):
         env,ev,rep,pack=fixture()
         r,etag=approved_release_101(pack())
         self.assertEqual(r.id,'tec-epr-clinic-1.0.1')
+        self.assertEqual(r.publisher_spki_sha256,PUBLISHER_101_SPKI_SHA256)
+        self.assertNotEqual(r.publisher_spki_sha256,CLINIC_1_0_0.publisher_spki_sha256)
         self.assertEqual(r.bucket,'tec-epr-private-releases')
         self.assertEqual(r.sha256,'a'*64)
         self.assertEqual(etag,'f'*32)
@@ -48,7 +56,7 @@ class ReleaseConfigurationTests(unittest.TestCase):
                 env,ev,rep,pack=fixture();env[key]=value
                 with self.assertRaises(ValueError):approved_release_101(pack())
     def test_both_metadata_views_must_match(self):
-        for target,key,value in [('ev','releaseScope','ANY_INSTALL'),('ev','upgradeSupported',True),('ev','gatewayActivated',True),('ev','archiveSha256','c'*64),('ev','publisherSpkiSha256','c'*64),('ev','releaseVersion','1.0.0'),('rep','publisherSignatureVerified',False),('rep','allArchiveMembersVerified',False),('rep','candidateManifestSha256','d'*64),('rep','signedManifestSha256','e'*64),('rep','backendRevision','f'*40),('rep','commercialReleaseApproved',True)]:
+        for target,key,value in [('ev','releaseScope','ANY_INSTALL'),('ev','upgradeSupported',True),('ev','gatewayActivated',True),('ev','archiveSha256','c'*64),('ev','publisherSpkiSha256','c'*64),('ev','releaseVersion','1.0.0'),('rep','publisherSignatureVerified',False),('rep','allArchiveMembersVerified',False),('rep','candidateManifestSha256','d'*64),('rep','signedManifestSha256','e'*64),('rep','backendRevision','f'*40),('rep','commercialReleaseApproved',True),('ev','previousPublisherSpkiSha256','e'*64),('rep','publisherTrustRotationApprovalSha256','e'*64)]:
             with self.subTest(target=target,key=key):
                 env,ev,rep,pack=fixture();(ev if target=='ev' else rep)[key]=value
                 with self.assertRaises(ValueError):approved_release_101(pack())
