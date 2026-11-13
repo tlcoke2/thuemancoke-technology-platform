@@ -7,13 +7,39 @@ function reviewed(){const x=m.template();x.assertion='APPROVED_FOR_COMMERCIAL_SI
   item.approvedAtUtc='2026-11-11T06:00:00Z';
   if(name!=='existingCustomerUpgrade')item.approved=true;
  }return x;}
+function reviewedRotation(){return {
+ kind:'tec-epr-101-publisher-trust-rotation-v1',decision:'APPROVED_FOR_SIGNING_1_0_1',
+ releaseVersion:'1.0.1',releaseScope:'FRESH_INSTALLATIONS_ONLY',
+ candidateManifestSha256:m.MANIFEST_SHA,
+ previousPublisherSpkiSha256:'6bd4d0bbe4f81fea83ab61875eca6a96c7f9310e765c3cbe89c05b7a28a0a733',
+ newPublisherSpkiSha256:'b45e340ab53f4a50c2c38bfd8adfd481421568f346ab5cfb30a838d0855c269a',
+ legacyVerificationPreserved:true,existingCustomerUpgradeSupported:false,authorizedKeyRotation:true,
+ approvedBy:'SYNTHETIC CI OWNER',approvedAtUtc:'2026-11-13T16:00:00Z',
+ evidenceReference:'SYNTHETIC-CI-APPROVAL-NOT-REAL'
+};}
 test('owner release cannot start without explicit opt in',()=>{
  assert.equal(m.parse([]).mode,'plan');
  assert.throws(()=>m.parse(['--mode','release']),/explicit --confirm-owner-release/);
  assert.equal(m.parse(['--mode','release','--confirm-owner-release']).mode,'release');
+ assert.equal(m.parse(['--mode','release','--confirm-owner-release','--rotation-approval','owner-rotation.json']).rotationApproval,'owner-rotation.json');
  assert.throws(()=>m.parse(['--mode','release','--confirm-owner-release','--confirm-owner-release']),/Duplicate owner confirmation/);
  assert.throws(()=>m.parse(['--mode','release','--unknown','yes']),/Unsupported/);
  assert.throws(()=>m.parse(['--mode','plan','--mode','release']),/Unsupported or repeated/);
+});
+test('new signer trust rotation requires owner-approved metadata and new key fingerprint',()=>{
+ assert.equal(m.verifyRotation(reviewedRotation()),true);
+ for(const mutate of [
+  x=>x.newPublisherSpkiSha256=x.previousPublisherSpkiSha256,
+  x=>x.authorizedKeyRotation=false,
+  x=>x.releaseScope='EXISTING_CUSTOMER_UPGRADE',
+  x=>x.previousPublisherSpkiSha256='0'.repeat(64),
+  x=>x.candidateManifestSha256='0'.repeat(64),
+  x=>x.approvedBy='',
+  x=>x.evidenceReference='',
+  x=>x.approvedAtUtc='2036-11-13T16:00:00Z']){
+  const r=reviewedRotation();mutate(r);
+  assert.throws(()=>m.verifyRotation(r),/trust rotation approval/);
+ }
 });
 test('release template is not a fabricated approval',()=>{
  const x=m.template();assert.notEqual(x.assertion,'APPROVED_FOR_COMMERCIAL_SIGNING');
