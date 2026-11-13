@@ -7,7 +7,7 @@ try:
     from .download_policy import (authorize_download, Principal, Membership, Grant, Role, Denied, CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256)
 except ImportError:
     from entitlements import tenants, memberships, grants, admins, elevations, events
-    from download_policy import (authorize_download, Principal, Membership, Grant, Role, Denied, CLINIC_1_0_0)
+    from download_policy import (authorize_download, Principal, Membership, Grant, Role, Denied, CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256)
 
 R2_ENDPOINT='https://d0ad5986fca56c661b92988f2ea1c1f7.r2.cloudflarestorage.com'
 EXPECTED_ETAG='fdb7dffbf9039a6e85a3bd30802b77dd'
