@@ -10,9 +10,10 @@ const RELEASE='1.0.1', SOURCE_BACKEND='91b848bfccb0951e010be8f566b4146a53b6a586'
 const SOURCE_FRONTEND='345384515c70dd7f6569e96f5c38b749b4ff986d';
 const MANIFEST_SHA='66907861e79d59a463dbb3b0d178bfe5fba3dfb85c8c8347c152e0cbf8f58218';
 const IMAGES_SHA='bbd30c1729e5d00219756ba58568ff4643de8e0412252a1c0d8890baca569c20';
-const PUBLISHER_SPKI='6bd4d0bbe4f81fea83ab61875eca6a96c7f9310e765c3cbe89c05b7a28a0a733';
-const BACKEND_HEAD='cc8f35292b7afd4c930b45d41f4667126d36a21a';
-const GATEWAY_HEAD='0222b77aa31a271b2cd16b979a2e3676cfd7798d';
+const LEGACY_PUBLISHER_SPKI='6bd4d0bbe4f81fea83ab61875eca6a96c7f9310e765c3cbe89c05b7a28a0a733';
+const PUBLISHER_SPKI='b45e340ab53f4a50c2c38bfd8adfd481421568f346ab5cfb30a838d0855c269a';
+const BACKEND_HEAD='17724b6a1fba8e1911a14afca2bbca33e966edba';
+const GATEWAY_HEAD='b3e137f75d6e41a5885367efc65025e2823cfbea';
 const BACKEND_BRANCH='review/rc5-101-synthetic-image-rehearsal-20261110';
 const GATEWAY_BRANCH='release/tec-epr-101-fresh-private-gateway-20261111';
 const BUCKET='tec-epr-private-releases';
@@ -32,7 +33,7 @@ function parse(argv){const o={mode:'plan'};let seenMode=false;
  for(let i=0;i<argv.length;i++){
   const x=argv[i];if(x==='--confirm-owner-release'){hold(o.confirm!==true,'Duplicate owner confirmation');o.confirm=true;continue}
   const map={'--mode':'mode','--approval':'approval','--private-key':'privateKey','--public-key':'publicKey',
-   '--aws-profile':'profile','--workspace':'workspace','--candidate-stage':'candidateStage'};
+   '--aws-profile':'profile','--rotation-approval':'rotationApproval','--workspace':'workspace','--candidate-stage':'candidateStage'};
   hold(Object.hasOwn(map,x)&&!(map[x]==='mode'?seenMode:Object.hasOwn(o,map[x])),'Unsupported or repeated argument: '+x);
   if(map[x]==='mode')seenMode=true;
   const val=argv[++i];hold(typeof val==='string'&&val&&!val.startsWith('--'),'Missing CLI value: '+x);o[map[x]]=val;
@@ -65,6 +66,24 @@ function verifyApproval(approval){hold(approval?.assertion==='APPROVED_FOR_COMME
    'Existing-customer upgrade must be explicitly NOT APPLICABLE for fresh-only release');
   else hold(x.approved===true,'Unapproved release gate: '+name);
  }
+ return true;
+}
+function verifyRotation(approval){
+ hold(approval?.kind==='tec-epr-101-publisher-trust-rotation-v1'&&
+  approval.decision==='APPROVED_FOR_SIGNING_1_0_1'&&
+  approval.releaseVersion===RELEASE&&approval.releaseScope===FRESH&&
+  approval.candidateManifestSha256===MANIFEST_SHA&&
+  approval.previousPublisherSpkiSha256===LEGACY_PUBLISHER_SPKI&&
+  approval.newPublisherSpkiSha256===PUBLISHER_SPKI&&
+  approval.legacyVerificationPreserved===true&&
+  approval.existingCustomerUpgradeSupported===false&&
+  approval.authorizedKeyRotation===true&&
+  typeof approval.approvedBy==='string'&&approval.approvedBy.trim().length>=3&&
+  typeof approval.evidenceReference==='string'&&approval.evidenceReference.trim().length>=12&&
+  typeof approval.approvedAtUtc==='string'&&approval.approvedAtUtc.endsWith('Z')&&
+  Number.isFinite(Date.parse(approval.approvedAtUtc))&&
+  Date.parse(approval.approvedAtUtc)<=Date.now()+300000,
+  'Owner-controlled explicit trust rotation approval missing or mismatched');
  return true;
 }
 function checkGit(root,ref,shaExpected,remote){
@@ -158,16 +177,24 @@ async function perform(o){
   return result;
  }
  const approvalFile=fileRequirement(o.approval||process.env.TEC_101_APPROVAL_JSON,'Owner 1.0.1 approval JSON');
+ const rotationApprovalFile=fileRequirement(o.rotationApproval||process.env.TEC_101_ROTATION_APPROVAL_JSON,
+  'New 1.0.1 publisher trust rotation authorisation');
  const privateKey=fileRequirement(o.privateKey||process.env.TEC_PUBLISHER_PRIVATE_KEY_PATH,'Offline publisher private key');
  const publicKey=fileRequirement(o.publicKey||process.env.TEC_PUBLISHER_TRUSTED_PUBLIC_KEY_PATH,'Independently trusted publisher public key');
  const approval=readObject(approvalFile);verifyApproval(approval);
+ const rotationRaw=fs.readFileSync(rotationApprovalFile);
+ hold(rotationRaw.length<65536,'Publisher rotation authorisation too large');
+ verifyRotation(JSON.parse(rotationRaw.toString('utf8')));
+ console.log('PASS_RC5_101_EXPLICIT_ROTATED_PUBLISHER_TRUST_APPROVED');
  const backendDir=path.join(workspace,'reviewed-backend');const gatewayDir=path.join(workspace,'reviewed-gateway');
  cloneIfMissing(backendDir,'tec_epr_backend',BACKEND_BRANCH,BACKEND_HEAD);
  cloneIfMissing(gatewayDir,'thuemancoke-technology-platform',GATEWAY_BRANCH,GATEWAY_HEAD);
  const backendFinalizer=require(path.join(backendDir,'scripts','rc5-finalize-publisher-release.cjs'));
  const backendVerify=require(path.join(backendDir,'scripts','rc5-verify-publisher-release.cjs'));
  const fingerprint=backendFinalizer.PINNED_PUBLISHER_SPKI_SHA256;
- hold(fingerprint===PUBLISHER_SPKI,'Unexpected publisher trust anchor');
+ hold(fingerprint===PUBLISHER_SPKI&&
+  backendFinalizer.LEGACY_100_PUBLISHER_SPKI_SHA256===LEGACY_PUBLISHER_SPKI,
+  'Unapproved 1.0.1 publisher identity or missing historical 1.0.0 verification anchor');
  const publicObj=crypto.createPublicKey(fs.readFileSync(publicKey));
  hold(sha(publicObj.export({format:'der',type:'spki'}))===PUBLISHER_SPKI,
   'Trusted publisher public verification key fingerprint mismatch');
@@ -176,12 +203,17 @@ async function perform(o){
  hold(!fs.existsSync(output),'Immutable signed 1.0.1 output already exists; do not re-sign or overwrite');
  const passphraseFile=process.env.TEC_PUBLISHER_KEY_PASSPHRASE_FILE;
  if(passphraseFile)fileRequirement(passphraseFile,'Protected publisher passphrase');
+ console.log('STAGE_RC5_101_SIGNING_NEW_RSA4096_TRUST_ROTATION');
  const signed=await backendFinalizer.seal({candidateDir:candidate.base,approvalFile,
   scanEvidencePath:candidate.scan,privateKeyPath:privateKey,outputPath:output,
+  rotationApprovalFile,
   ...(passphraseFile?{passphraseFile:path.resolve(passphraseFile)}:{})});
+ console.log('STAGE_RC5_101_INDEPENDENT_RSA_ARCHIVE_VERIFICATION');
  const independently=await backendVerify.verify(output,publicKey);
  hold(independently.assessment==='PASS_SIGNED_COMMERCIAL_ARCHIVE_AUTHENTICITY_AND_CONTENTS'&&
-  independently.archiveSha256===signed.archiveSha256&&independently.publisherSpkiSha256===PUBLISHER_SPKI,
+  independently.archiveSha256===signed.archiveSha256&&independently.publisherSpkiSha256===PUBLISHER_SPKI&&
+  independently.publisherTrustRotationApprovalSha256===sha(rotationRaw)&&
+  independently.previousPublisherSpkiSha256===LEGACY_PUBLISHER_SPKI,
   'Independent signed release verifier refused downloaded archive');
  result.archiveSigned=true;result.archiveSha256=signed.archiveSha256;result.archiveBytes=signed.archiveBytes;
  result.signedArchivePath=output;
@@ -193,6 +225,7 @@ async function perform(o){
  run('tar',['-xzf',output,'-C',trustDir,'./manifest.json','./manifest.sig','./manifest.signer.json'],{timeout:120000});
  const reportPath=path.join(workspace,'RELEASE-101-INDEPENDENT-VERIFICATION.json');
  const gatewayVerifier=path.join(gatewayDir,'customer_gateway','verify_release_101.py');
+ console.log('STAGE_RC5_101_INDEPENDENT_GATEWAY_VERIFICATION');
  run('python',[gatewayVerifier,'--release-dir',trustDir,'--public-key',publicKey,
   '--archive',output,'--release-evidence',output+'.release-evidence.json',
   '--report-json',reportPath],{timeout:600000});
@@ -200,9 +233,14 @@ async function perform(o){
  hold(verified.assessment==='VERIFIED_1_0_1_ARCHIVE_PENDING_HUMAN_GATEWAY_APPROVAL'&&
   verified.publisherSignatureVerified===true&&verified.allArchiveMembersVerified===true&&
   verified.verifiedArchiveSha256===signed.archiveSha256&&verified.releaseScope===FRESH&&
-  verified.upgradeSupported===false,'Independent private gateway release verification failed');
+  verified.upgradeSupported===false&&
+  verified.publisherSpkiSha256===PUBLISHER_SPKI&&
+  verified.previousPublisherSpkiSha256===LEGACY_PUBLISHER_SPKI&&
+  verified.publisherTrustRotationApprovalSha256===sha(rotationRaw),
+  'Independent private gateway release verification failed');
  console.log('PASS_RC5_101_INDEPENDENT_GATEWAY_SIGNATURE_AND_PAYLOAD_REVIEW');
  const releaseMetadata=readObject(output+'.release-evidence.json');
+ console.log('STAGE_RC5_101_PRIVATE_R2_PUBLICATION_AND_READBACK');
  const remote=await uploadPrivate({archive:output,sha256:signed.archiveSha256,bytes:signed.archiveBytes,
   profile:o.profile||process.env.TEC_R2_PUBLISH_PROFILE});
  result.r2Uploaded=true;result.r2Key=remote.key;
@@ -212,6 +250,9 @@ async function perform(o){
  const config={format:'tec-epr-101-private-commercial-activation-v1',
   releaseScope:FRESH,releaseVersion:RELEASE,privateBucket:BUCKET,privateObjectKey:remote.key,
   GATEWAY_RELEASE_ID:'tec-epr-clinic-1.0.1',
+  publisherSpkiSha256:PUBLISHER_SPKI,
+  previousPublisherSpkiSha256:LEGACY_PUBLISHER_SPKI,
+  publisherTrustRotationApprovalSha256:sha(rotationRaw),
   GATEWAY_SIGNED_101_RELEASE_EVIDENCE_JSON:JSON.stringify(releaseMetadata),
   GATEWAY_VERIFIED_101_REPORT_JSON:JSON.stringify(verified),
   GATEWAY_R2_101_EXPECTED_ETAG:remote.etag,
@@ -234,4 +275,4 @@ async function main(){try{
 }catch(e){console.error(e.message.startsWith('HOLD_RC5_101')?e.message:
  'HOLD_RC5_101_COMMERCIAL_RELEASE: failed; no gateway or customer downloads enabled.');process.exitCode=2}}
 if(require.main===module)main();
-module.exports={parse,template,verifyApproval,checkStage,awsEnv,FRESH,MANIFEST_SHA};
+module.exports={parse,template,verifyApproval,verifyRotation,checkStage,awsEnv,FRESH,MANIFEST_SHA};
