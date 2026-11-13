@@ -1,5 +1,7 @@
 # TEC EPR Clinic Edition 1.0.1 — Owner-controlled commercial release
 
+> **13 November 2026 publisher trust rotation:** The original 1.0.0 RSA-4096 private-key passphrase is unavailable. A new owner-held, encrypted RSA-4096 signing identity was created exclusively for 1.0.1. New public SPKI SHA-256: `b45e340ab53f4a50c2c38bfd8adfd481421568f346ab5cfb30a838d0855c269a`. Old 1.0.0 verification SPKI SHA-256: `6bd4d0bbe4f81fea83ab61875eca6a96c7f9310e765c3cbe89c05b7a28a0a733`. The original 1.0.0 public trust must remain available for historic release verification, but **must not** sign or authenticate the new 1.0.1 archive. The original 1.0.1 approval JSON is preserved. A **separate, currently dated**, owner-confirmed signer-rotation approval record is mandatory. Neither a newly created key nor an existing application approval automatically authorises a signing-key rotation.
+
 **11 November 2026 · Fresh clinic installations only.** Existing-customer upgrade is **not supported** by this candidate and remains denied. The previously signed Clinic Edition 1.0.0 and all clinical installations stay untouched.
 
 ## Engineering progress already accepted
@@ -13,6 +15,23 @@ Backend source commit: `91b848bfccb0951e010be8f566b4146a53b6a586`
 Frontend source commit: `345384515c70dd7f6569e96f5c38b749b4ff986d`
 
 The finalizer is pinned to the reviewed GitHub code that enforces `FRESH_INSTALLATIONS_ONLY` and marks existing-customer upgrades *not applicable*; it does **not** assert that a customer upgrade has passed.
+
+## Owner-controlled signer's new public key and approval (mandatory)
+
+From the owner machine, after synchronising the reviewed signing and gateway Git checkouts, execute the reviewed, owner-only **public key** check and interactive attestation:
+
+```powershell
+$dir='C:\My_Applications\TEC-EPR-RC5-101-FINAL-RELEASE-TOOLS'
+node (Join-Path $dir 'Approve-TEC-EPR-101-Rotated-Publisher.cjs')
+```
+
+It requires the actual publisher owner to type `APPROVE-ROTATED-101`, records the present UTC timestamp (NOT backdated to 10 November), and verifies BOTH historical 1.0.0 and rotated 1.0.1 public keys. It creates the **new** `C:\Users\tlcok\TEC-EPR-1.0.1-FRESH-RELEASE-OWNER\ROTATED-PUBLISHER-TRUST-1.0.1-OWNER-APPROVED.json` only when explicitly approved. Existing approvals retain their original timestamps and contents. The rotation record does not constitute independent countersignature, key recovery or an ability to upgrade customers. Production gateway activation remains a distinct approval.
+
+The rotated encrypted RSA-4096 key resides at:
+- `C:\My_Applications\TEC-EPR-Publisher-Keys-1.0.1-ROTATED\private.pem`
+- `C:\My_Applications\TEC-EPR-Publisher-Keys-1.0.1-ROTATED\public.pem`
+
+Never upload the private PEM or passphrase. The new passphrase must be retrieved from the owner's secure OFFLINE record. The reviewed controller consumes its path via `TEC_PUBLISHER_KEY_PASSPHRASE_FILE` (local, temporary restricted file that must be removed after operation). The old private key and its unavailable passphrase are **not** used.
 
 ## One-time owner workstation inputs
 
@@ -40,23 +59,23 @@ Identify the actual existing R2 CLI profile and the owner-controlled RSA4096 key
 
 ```powershell
 aws configure list-profiles
-Test-Path 'C:\My_Applications\TEC-EPR-Publisher-Keys-1.0.0\private.pem'
-Test-Path 'C:\My_Applications\TEC-EPR-Publisher-Trust\publisher-public-1.0.0.pem'
+Test-Path 'C:\My_Applications\TEC-EPR-Publisher-Keys-1.0.1-ROTATED\private.pem'
+Test-Path 'C:\My_Applications\TEC-EPR-Publisher-Keys-1.0.1-ROTATED\public.pem'
 ```
 
-The private PEM path shown above was previously reported, **not independently verified**. If it is absent, locate the real protected key rather than generating/replacing the established publisher identity. The profile must be an actual configured, bucket-scoped R2 publisher profile; example names are **never executable arguments**.
+The rotated private PEM path was confirmed by the owner's key creation output; verify its existence and the independent public-key SPKI on the owner's Windows machine. Do not recreate the newly approved identity if the file is missing. Preserve the original 1.0.0 identity and public key for historic verification. The profile must be an actual configured, bucket-scoped R2 publisher profile; example names are **never executable arguments**.
 
 Then from the extracted tools directory run, substituting only verified local file paths where needed:
 
 ```powershell
 $r2Profile = Read-Host 'Enter the actual existing dedicated R2 publisher AWS CLI profile'
-$privateKey = 'C:\My_Applications\TEC-EPR-Publisher-Keys-1.0.0\private.pem'
-$publicKey = 'C:\My_Applications\TEC-EPR-Publisher-Trust\publisher-public-1.0.0.pem'
+$privateKey = 'C:\My_Applications\TEC-EPR-Publisher-Keys-1.0.1-ROTATED\private.pem'
+$publicKey = 'C:\My_Applications\TEC-EPR-Publisher-Keys-1.0.1-ROTATED\public.pem'
 if (!(Test-Path -LiteralPath $approval -PathType Leaf) -or
     !(Test-Path -LiteralPath $privateKey -PathType Leaf) -or
     !(Test-Path -LiteralPath $publicKey -PathType Leaf)) { throw 'Required approved evidence or local signing key file missing' }
 if ($r2Profile -notin @(aws configure list-profiles)) { throw 'Selected R2 AWS CLI profile not configured' }
-.\Run-TEC-EPR-101-Commercial-Release.cmd --approval $approval --private-key $privateKey --public-key $publicKey --aws-profile $r2Profile
+.\Run-TEC-EPR-101-Commercial-Release.cmd --approval $approval --rotation-approval "$workspace\\ROTATED-PUBLISHER-TRUST-1.0.1-OWNER-APPROVED.json" --private-key $privateKey --public-key $publicKey --aws-profile $r2Profile
 ```
 
 **Correction recorded 11 Nov 2026:** Old README examples contained literal placeholders such as `C:\<OWNER-PRIVATE-FOLDER>` and `<BUCKET-SCOPED-R2-PUBLISHER-PROFILE>`; executing those verbatim fails before signing, as expected. The canonical template path is printed by `Check-TEC-EPR-101-Release.cmd`. No new download of the utility bundle is required to follow these corrected instructions.
