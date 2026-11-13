@@ -4,7 +4,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import select, func
 try:
     from .entitlements import tenants, memberships, grants, admins, elevations, events
-    from .download_policy import (authorize_download, Principal, Membership, Grant, Role, Denied, CLINIC_1_0_0)
+    from .download_policy import (authorize_download, Principal, Membership, Grant, Role, Denied, CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256)
 except ImportError:
     from entitlements import tenants, memberships, grants, admins, elevations, events
     from download_policy import (authorize_download, Principal, Membership, Grant, Role, Denied, CLINIC_1_0_0)
@@ -18,7 +18,9 @@ class R2Signer:
         if not key_id or not secret:
             raise ValueError('Dedicated R2 read credentials required')
         if (release.id not in ('tec-epr-clinic-1.0.0','tec-epr-clinic-1.0.1')
-                or release.publisher_spki_sha256 != CLINIC_1_0_0.publisher_spki_sha256
+                or release.publisher_spki_sha256 != (
+                    CLINIC_1_0_0.publisher_spki_sha256 if release.id == 'tec-epr-clinic-1.0.0'
+                    else PUBLISHER_101_SPKI_SHA256)
                 or not expected_etag or len(expected_etag)>128):
             raise ValueError('Unapproved private release object identity')
         self.release, self.expected_etag = release, expected_etag
