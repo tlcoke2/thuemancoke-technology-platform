@@ -52,13 +52,19 @@ class Config:
     onboarding_enabled: bool = False
     downloads_enabled: bool = False
     release_approved: bool = False
+    environment: str = "staging"
+    release_id: str = "tec-epr-clinic-1.0.0"
 
     def __post_init__(self):
         u = urlsplit(self.origin)
         if u.scheme != "https" or not u.hostname or u.username or u.password or u.path or u.query or u.fragment:
             raise ValueError("GATEWAY_ORIGIN must be an HTTPS origin with no trailing slash")
         if not self.client_id.startswith("client_") or not self.api_key.startswith("sk_"):
-            raise ValueError("Staging WorkOS configuration missing")
+            raise ValueError("WorkOS configuration missing")
+        if self.environment not in ("staging","production"):
+            raise ValueError("Unsupported gateway environment")
+        if self.release_id not in ("tec-epr-clinic-1.0.0","tec-epr-clinic-1.0.1"):
+            raise ValueError("Unknown gateway commercial release")
 
 
 class WorkOS:
@@ -75,7 +81,7 @@ class WorkOS:
             return response.json()
 
 
-def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None, identity_lookup=None, download_signer=None):
+def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None, identity_lookup=None, download_signer=None, download_release=None):
     provider = provider or WorkOS(config)
     try:
         from .ui import page as view, message_page, STYLESHEET
@@ -89,12 +95,21 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         from .entitlements import Entitlements, Denied, admins, grants
     except ImportError:
         from entitlements import Entitlements, Denied, admins, grants
-    entitlements = Entitlements(engine, sessions, clock)
+    entitlements = Entitlements(engine, sessions, clock, release_id=config.release_id)
     try:
         from .downloads import Downloads, Denied as DownloadDenied
     except ImportError:
         from downloads import Downloads, Denied as DownloadDenied
-    download_service = Downloads(entitlements, download_signer, config.downloads_enabled, config.release_approved)
+    if download_release is None:
+        try:
+            from .download_policy import CLINIC_1_0_0
+        except ImportError:
+            from download_policy import CLINIC_1_0_0
+        download_release = CLINIC_1_0_0
+    if download_release.id != config.release_id:
+        raise ValueError("Download release differs from enrolled customer grant release")
+    download_service = Downloads(entitlements, download_signer, config.downloads_enabled,
+                                  config.release_approved, release=download_release)
     step_up = StepUp(engine, sessions, audit, mfa_provider or WorkOSMFA(config.api_key), clock)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -187,7 +202,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
 
     @app.get("/health")
     def health():
-        return {"ok": True, "environment": "staging", "service": "tcl-customer-gateway",
+        return {"ok": True, "environment": config.environment, "service": "tcl-customer-gateway",
                 "downloadsEnabled": config.downloads_enabled and config.release_approved and download_signer is not None, "mfaStepUpEnabled": config.mfa_enabled,
                 "authenticatorSetupAvailable": bool(config.enrollment_subjects),
                 "customerOnboardingEnabled": config.onboarding_enabled}
@@ -601,36 +616,58 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
 
 
 def from_environment():
-    if os.environ.get("APP_ENV") != "staging":
-        raise RuntimeError("This candidate is staging-only")
+    mode=os.environ.get("APP_ENV")
+    if mode not in ("staging","production"):
+        raise RuntimeError("This candidate is staging-only unless an approved production environment is configured")
+    origin=os.environ.get("GATEWAY_ORIGIN","")
+    if mode=="production":
+        host=urlsplit(origin).hostname or ""
+        if (os.environ.get("GATEWAY_PRODUCTION_LAUNCH_APPROVED")!="true" or
+            os.environ.get("GATEWAY_PRODUCTION_DATABASE_APPROVAL_REF","").strip().__len__()<12 or
+            os.environ.get("GATEWAY_PRODUCTION_WORKOS_APPROVAL_REF","").strip().__len__()<12 or
+            not host.endswith(".thuemancokelimited.com") or
+            "staging" in host or ".up.railway.app" in host):
+            raise RuntimeError("This candidate is staging-only without dedicated approved customer-domain, production WorkOS and commercial database")
     url = os.environ.get("COMMERCIAL_DATABASE_URL", "")
     if not url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
         raise RuntimeError("Dedicated commercial PostgreSQL URL required")
     url = url.replace("postgres://", "postgresql+psycopg://", 1).replace("postgresql://", "postgresql+psycopg://", 1)
+
+    enabled=os.environ.get("GATEWAY_DOWNLOADS_ENABLED")=="true"
+    approved=os.environ.get("GATEWAY_RELEASE_APPROVED")=="true"
+    release=None
+    etag=None
+    if enabled or approved:
+        # Any attempt to activate quarantined 1.0.0, or to supply only one
+        # release flag, remains an immediate FAIL-CLOSED startup error.
+        if not enabled or not approved:
+            raise RuntimeError("SECURITY HOLD: TEC EPR Clinic Edition 1.0.0 is quarantined; both 1.0.1 controls are required")
+        try:
+            from .release_101_config import approved_release_101
+        except ImportError:
+            from release_101_config import approved_release_101
+        try:
+            release,etag=approved_release_101(os.environ)
+        except ValueError as exc:
+            raise RuntimeError("SECURITY HOLD: TEC EPR Clinic Edition 1.0.0 is quarantined; independently verified fresh-only 1.0.1 release evidence is required") from exc
+
     config = Config(os.environ["GATEWAY_ORIGIN"], os.environ["WORKOS_CLIENT_ID"],
                     os.environ["WORKOS_API_KEY"], os.environ.get("GATEWAY_AUTH_ENABLED") == "true",
                     os.environ.get("GATEWAY_MFA_ENABLED") == "true",
                     tuple(s.strip() for s in os.environ.get("GATEWAY_ENROLLMENT_SUBJECTS", "").split(",") if s.strip()),
                     os.environ.get("GATEWAY_ONBOARDING_ENABLED") == "true",
-                    os.environ.get("GATEWAY_DOWNLOADS_ENABLED") == "true",
-                    os.environ.get("GATEWAY_RELEASE_APPROVED") == "true")
-    # Commercial security hold (04 Nov 2026): an authenticated inspection of
-    # the immutable, publisher-signed TEC EPR Clinic Edition 1.0.0 package
-    # confirmed both customer Admin and global environment licence bypasses.
-    # Reject any attempt to turn EITHER release switch on. This safeguard is
-    # independent of settings and cannot be bypassed with an environment flag.
-    # Keep the verified clinical release archive untouched. A separately
-    # signed/versioned replacement requires review before download activation.
-    if config.downloads_enabled or config.release_approved:
-        raise RuntimeError(
-            "SECURITY HOLD: TEC EPR Clinic Edition 1.0.0 is quarantined "
-            "from commercial download issuance pending a new signed release"
-        )
+                    enabled,approved,environment=mode,
+                    release_id=release.id if release else "tec-epr-clinic-1.0.0")
+    if mode=="production" and (not config.enabled or not config.mfa_enabled):
+        raise RuntimeError("Production customer identity and MFA must remain enabled")
     signer = None
-    if config.downloads_enabled and config.release_approved:
+    if release is not None:
         try:
             from .downloads import R2Signer
         except ImportError:
             from downloads import R2Signer
-        signer = R2Signer(os.environ.get('R2_ACCESS_KEY_ID',''), os.environ.get('R2_SECRET_ACCESS_KEY',''))
-    return create_app(config, create_engine(url, pool_pre_ping=True, hide_parameters=True), download_signer=signer)
+        signer=R2Signer(os.environ.get("R2_ACCESS_KEY_ID",""),
+                        os.environ.get("R2_SECRET_ACCESS_KEY",""),
+                        release=release,expected_etag=etag)
+    return create_app(config, create_engine(url, pool_pre_ping=True, hide_parameters=True),
+                      download_signer=signer,download_release=release)

@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 from customer_gateway.verify_release_101 import review_new_release, VerificationError
-from customer_gateway.download_policy import CLINIC_1_0_0
+from customer_gateway.download_policy import CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256
 
 
 class Clinical101ReleaseTests(unittest.TestCase):
@@ -40,6 +40,7 @@ class Clinical101ReleaseTests(unittest.TestCase):
             'frontend/index.html':b'<html>SYNTHETIC NO PATIENT</html>',
             'images.tar':b'SYNTHETIC OCI IMAGES ONLY NOT REAL INSTALLERS',
             'compose.images.yaml':b'services:\n  backend:\n    pull_policy: never\n',
+            'schema-version.json':b'{"version":"20261109-fresh-v2","upgradeSupported":false}',
         }
         self.backend='a'*40
         self.frontend='b'*40
@@ -48,8 +49,12 @@ class Clinical101ReleaseTests(unittest.TestCase):
         self.manifest={
             'format':1,'status':'APPROVED CLINICAL RELEASE 1.0.1',
             'releaseVersion':'1.0.1','targetReleaseVersion':'1.0.1',
+            'releaseScope':'FRESH_INSTALLATIONS_ONLY','upgradeSupported':False,
             'candidateManifestSha256':'c'*64,'approvalEvidenceSha256':'d'*64,
             'scanEvidenceSha256':'e'*64,
+            'publisherTrustRotationApprovalSha256':'f'*64,
+            'previousPublisherSpkiSha256':CLINIC_1_0_0.publisher_spki_sha256,
+            'publisherSpkiSha256':self.trusted,
             'reviewedImageIds':{
                 'backend':'sha256:'+'1'*64,'frontend':'sha256:'+'2'*64,
                 'database':'sha256:'+'3'*64},
@@ -84,7 +89,10 @@ class Clinical101ReleaseTests(unittest.TestCase):
         self.evidence={
             'status':'SIGNED_PENDING_COMMERCIAL_GATEWAY_APPROVAL',
             'releaseVersion':'1.0.1','gatewayActivated':False,
+            'releaseScope':'FRESH_INSTALLATIONS_ONLY','upgradeSupported':False,
             'publisherSpkiSha256':self.trusted,
+            'previousPublisherSpkiSha256':CLINIC_1_0_0.publisher_spki_sha256,
+            'publisherTrustRotationApprovalSha256':'f'*64,
             'archiveSha256':hashlib.sha256(archive_data).hexdigest(),
             'archiveBytes':len(archive_data)+10001,  # set below
             'archiveFilename':self.archive.name,
@@ -118,9 +126,19 @@ class Clinical101ReleaseTests(unittest.TestCase):
         self.assertFalse(result['downloadsEnabled'])
         self.assertFalse(result['commercialReleaseApproved'])
         self.assertEqual(result['backendRevision'],self.backend)
+        self.assertEqual(result['releaseScope'],'FRESH_INSTALLATIONS_ONLY')
+        self.assertIs(result['upgradeSupported'],False)
+        self.assertEqual(result['candidateManifestSha256'],'c'*64)
+
+    def test_rejects_signed_package_claiming_customer_upgrades(self):
+        self.manifest['upgradeSupported']=True
+        self.prepare()
+        with self.assertRaisesRegex(VerificationError,'fresh|offline image manifest drift'):
+            self.verify()
 
     def test_cli_does_not_trust_unapproved_synthetic_publisher_by_default(self):
-        self.assertNotEqual(self.trusted,CLINIC_1_0_0.publisher_spki_sha256)
+        self.assertNotEqual(PUBLISHER_101_SPKI_SHA256,CLINIC_1_0_0.publisher_spki_sha256)
+        self.assertNotEqual(self.trusted,PUBLISHER_101_SPKI_SHA256)
         with self.assertRaisesRegex(VerificationError,'untrusted|Unsigned|unsupported'):
             review_new_release(self.root,self.public,self.archive,self.evidence_path)
 

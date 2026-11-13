@@ -4,19 +4,26 @@ from urllib.parse import urlsplit
 from sqlalchemy import select, func
 try:
     from .entitlements import tenants, memberships, grants, admins, elevations, events
-    from .download_policy import (authorize_download, Principal, Membership, Grant, Role, Denied, CLINIC_1_0_0)
+    from .download_policy import (authorize_download, Principal, Membership, Grant, Role, Denied, CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256)
 except ImportError:
     from entitlements import tenants, memberships, grants, admins, elevations, events
-    from download_policy import (authorize_download, Principal, Membership, Grant, Role, Denied, CLINIC_1_0_0)
+    from download_policy import (authorize_download, Principal, Membership, Grant, Role, Denied, CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256)
 
 R2_ENDPOINT='https://d0ad5986fca56c661b92988f2ea1c1f7.r2.cloudflarestorage.com'
 EXPECTED_ETAG='fdb7dffbf9039a6e85a3bd30802b77dd'
 
 
 class R2Signer:
-    def __init__(self, key_id, secret):
+    def __init__(self, key_id, secret, release=CLINIC_1_0_0, expected_etag=EXPECTED_ETAG):
         if not key_id or not secret:
             raise ValueError('Dedicated R2 read credentials required')
+        if (release.id not in ('tec-epr-clinic-1.0.0','tec-epr-clinic-1.0.1')
+                or release.publisher_spki_sha256 != (
+                    CLINIC_1_0_0.publisher_spki_sha256 if release.id == 'tec-epr-clinic-1.0.0'
+                    else PUBLISHER_101_SPKI_SHA256)
+                or not expected_etag or len(expected_etag)>128):
+            raise ValueError('Unapproved private release object identity')
+        self.release, self.expected_etag = release, expected_etag
         import boto3
         from botocore.config import Config
         self.client=boto3.client('s3',endpoint_url=R2_ENDPOINT,region_name='auto',
@@ -25,16 +32,16 @@ class R2Signer:
                           connect_timeout=3,read_timeout=5,retries={'total_max_attempts':1}))
 
     def check(self):
-        release=CLINIC_1_0_0
+        release=self.release
         obj=self.client.head_object(Bucket=release.bucket,Key=release.object_key)
-        if obj.get('ContentLength')!=release.bytes or obj.get('ETag','').strip('"')!=EXPECTED_ETAG:
+        if obj.get('ContentLength')!=release.bytes or obj.get('ETag','').strip('"')!=self.expected_etag:
             raise ValueError('Private object differs from verified read-back evidence')
         # Size/ETag are change detection, not signature verification. Installer trust
         # still requires full SHA-256 and the independently authenticated publisher key.
 
     def sign(self, decision):
         release=decision.release
-        if release!=CLINIC_1_0_0 or not 1 <= decision.ttl_seconds <= 300:
+        if release!=self.release or not 1 <= decision.ttl_seconds <= 300:
             raise ValueError('Unsupported signing request')
         url=self.client.generate_presigned_url('get_object',Params={
             'Bucket':release.bucket,'Key':release.object_key,
@@ -49,9 +56,11 @@ class R2Signer:
 
 
 class Downloads:
-    def __init__(self, access, signer, enabled=False, release_approved=False):
+    def __init__(self, access, signer, enabled=False, release_approved=False,
+                 release=CLINIC_1_0_0):
         self.access,self.signer=access,signer
         self.enabled,self.release_approved=enabled,release_approved
+        self.release=release
 
     def issue(self, session_hash, grant_id):
         if self.enabled is not True or self.release_approved is not True or not self.signer:
@@ -87,7 +96,8 @@ class Downloads:
                     grant=Grant(g['id'],g['tenant_id'],g['release_id'],g['state'],dt(g['starts']),dt(g['expires']),
                                 g['approval_reference'],g['contract_reference']),
                     requested_tenant=g['tenant_id'],requested_release=g['release_id'],
-                    now=dt(checked_at),release_withdrawn=not self.release_approved)
+                    now=dt(checked_at),release_withdrawn=not self.release_approved,
+                    release=self.release)
             decision()  # Reject before touching R2.
             count=c.scalar(select(func.count()).select_from(events).where(events.c.event=='download_link_issued',
                 events.c.actor==session['subject'],events.c.grant_id==grant_id,events.c.created>now-900))
