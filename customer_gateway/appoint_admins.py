@@ -150,7 +150,7 @@ def production_target(env, url, owner_email):
     for key in ('GATEWAY_PRODUCTION_DATABASE_APPROVAL_REF', 'GATEWAY_PRODUCTION_WORKOS_APPROVAL_REF'):
         approval_reference(env, key)
     target = database_target(url)
-    if target.host not in PRODUCTION_HOSTS or target.database != PRODUCTION_DATABASE:
+    if target.host != 'postgres-r2ez.railway.internal' or target.database != PRODUCTION_DATABASE:
         raise AppointmentError('Unexpected production Gateway database target')
     return target, approval_reference(env, 'GATEWAY_PRODUCTION_APPOINTMENT_APPROVAL_REF')
 
