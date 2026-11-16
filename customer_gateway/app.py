@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import html
+import logging
 import os
 import secrets
 import time
@@ -32,6 +33,8 @@ audit = Table("gateway_auth_audit", metadata,
     Column("event", String(40), nullable=False),
     Column("subject", String(160), nullable=False),
     Column("created", Integer, nullable=False))
+
+logger = logging.getLogger("uvicorn.error")
 
 FLOW_COOKIE = "__Host-tcl-flow"
 SESSION_COOKIE = "__Host-tcl-session"
@@ -131,7 +134,9 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             415: "Unsupported form", 503: "Service temporarily unavailable",
         }.get(error.status_code, "Request not completed")
         if error.status_code == 401:
-            detail = "Your gateway session has expired, or you need to sign in again."
+            detail = ("The gateway could not complete WorkOS sign-in. Start a new sign-in to try again."
+                      if request.url.path == "/auth/callback" else
+                      "Your gateway session has expired, or you need to sign in again.")
         elif error.status_code == 404:
             detail = "That page is not available. Return to the gateway to continue."
         response = HTMLResponse(message_page(title, detail,
@@ -306,6 +311,13 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             raise HTTPException(400, "Expired, replayed or mismatched sign-in")
         try:
             data = provider.exchange(code, flow.verifier)
+        except httpx.HTTPStatusError as error:
+            logger.warning("Gateway WorkOS code exchange rejected (HTTP %d)", error.response.status_code)
+            raise HTTPException(401, "Sign-in could not be verified; please start again") from None
+        except Exception as error:
+            logger.warning("Gateway WorkOS code exchange failed (%s)", type(error).__name__)
+            raise HTTPException(401, "Sign-in could not be verified; please start again") from None
+        try:
             user = data.get("user", {})
             subject = user.get("id")
             if data.get("impersonator") or data.get("authentication_method") == "Impersonation":
@@ -314,6 +326,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
                 raise ValueError("Unverified identity")
         except Exception:
             # Never log provider responses, authorization codes or tokens.
+            logger.warning("Gateway rejected the WorkOS identity response")
             raise HTTPException(401, "Sign-in could not be verified; please start again") from None
         token, csrf, now = secrets.token_urlsafe(32), secrets.token_urlsafe(32), int(clock())
         with engine.begin() as c:
