@@ -45,4 +45,16 @@ jobs:
         run: python -m pip install pip-audit==2.10.1
       - name: Audit pinned gateway requirements and their dependencies
         run: python -m pip_audit -r customer_gateway/requirements.txt --progress-spinner off
-
+  container-smoke:
+    name: Gateway Docker container build and import smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build exact gateway service Dockerfile
+        run: docker build -f customer_gateway/Dockerfile --tag tcl-gateway-pr:ci customer_gateway
+      - name: Require production-only runtime modules included
+        run: |
+          docker run --rm --entrypoint python tcl-gateway-pr:ci -c "import app, release_101_config, init_production, download_policy; print('PASS_GATEWAY_PRODUCTION_RUNTIME_IMPORTS')"

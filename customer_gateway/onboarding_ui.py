@@ -161,7 +161,7 @@ def register(app, config, engine, access, current, protected_form, lookup):
             output += ('<section class="card"><span class="' + badge + '">'
                 + esc(status.title()) + '</span><h2>'
                 + esc(r['organisation'] or 'Customer organisation') + '</h2>'
-                '<span class="kicker">TEC EPR CLINIC EDITION 1.0.0</span>'
+                '<span class="kicker">TEC EPR CLINIC EDITION '+esc(config.release_id.rsplit('-',1)[-1])+'</span>'
                 '<p class="fine">Grant reference</p><code class="code">'
                 + esc(r['id']) + '</code>')
             if status == 'approved' and config.downloads_enabled and config.release_approved:

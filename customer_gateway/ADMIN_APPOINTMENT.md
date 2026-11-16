@@ -65,4 +65,29 @@ Live WorkOS appointment lookup and browser acceptance remain operator checks.
 
 No new migration is required. Roll back application code if necessary; preserve
 appointment/audit records for review. No destructive rollback or automatic role
-removal is provided. Production and clinical systems remain outside this command.
+removal is provided. Clinical systems remain outside this command.
+
+
+## First production administrator appointment
+
+Use the dedicated production Customer Gateway service console after both distinct
+WorkOS identities verify their email and complete Gateway MFA. Confirm the
+Gateway authentication, MFA, and entitlement tables are present. Keep downloads
+and release approval off and first-time authenticator enrolment closed.
+
+Use the owner-authorized appointment reference, kept with the approval record.
+The appointment writes the reference to the Gateway audit alongside both role
+events in the same transaction. Use the WorkOS identities and verified mailboxes
+from the approved appointment.
+
+```sh
+GATEWAY_APPOINT_ADMINS=confirmed-production-pair \
+GATEWAY_PRODUCTION_APPOINTMENT_APPROVAL_REF=OWNER_APPROVAL_REFERENCE \
+python appoint_admins.py --check-only \
+  --owner-id OWNER_WORKOS_ID --owner-email VERIFIED_OWNER_EMAIL \
+  --approver-id APPROVER_WORKOS_ID --approver-email VERIFIED_APPROVER_EMAIL
+```
+
+After the preflight passes, repeat the command with the same arguments and omit
+`--check-only`. Each administrator signs in and verifies their authenticator to
+open the approval dashboard.

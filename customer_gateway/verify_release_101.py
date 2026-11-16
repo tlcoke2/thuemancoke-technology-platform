@@ -12,10 +12,10 @@ import re
 from pathlib import Path
 
 try:
-    from .download_policy import Release, CLINIC_1_0_0
+    from .download_policy import Release, CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256
     from .verify_release_payload import verify_release_payload, VerificationError
 except ImportError:
-    from download_policy import Release, CLINIC_1_0_0
+    from download_policy import Release, CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256
     from verify_release_payload import verify_release_payload, VerificationError
 
 VERSION='1.0.1'
@@ -50,14 +50,18 @@ def review_new_release(release_dir, public_key, archive, evidence_file,
     independently reviewed before pinning a release in the production gateway.
     """
     evidence=_json_file(evidence_file)
-    trusted=CLINIC_1_0_0.publisher_spki_sha256
+    trusted=PUBLISHER_101_SPKI_SHA256
     if expected_fingerprint is not None:
         trusted=expected_fingerprint  # Synthetic unit fixture only; CLI never exposes.
     if (not SHA256.fullmatch(trusted) or not isinstance(evidence,dict) or
         evidence.get('status')!='SIGNED_PENDING_COMMERCIAL_GATEWAY_APPROVAL' or
         evidence.get('releaseVersion')!=VERSION or
+        evidence.get('releaseScope')!='FRESH_INSTALLATIONS_ONLY' or
+        evidence.get('upgradeSupported') is not False or
         evidence.get('gatewayActivated') is not False or
         evidence.get('publisherSpkiSha256')!=trusted or
+        evidence.get('previousPublisherSpkiSha256')!=CLINIC_1_0_0.publisher_spki_sha256 or
+        not SHA256.fullmatch(str(evidence.get('publisherTrustRotationApprovalSha256',''))) or
         not SHA256.fullmatch(str(evidence.get('archiveSha256',''))) or
         not SHA256.fullmatch(str(evidence.get('signedManifestSha256',''))) or
         type(evidence.get('archiveBytes')) is not int or evidence['archiveBytes']<10000):
@@ -89,11 +93,16 @@ def review_new_release(release_dir, public_key, archive, evidence_file,
         expected_version=VERSION,expected_status=APPROVED)
     manifest=_json_file(Path(release_dir)/'manifest.json')
     if (manifest.get('releaseVersion')!=VERSION or
+        manifest.get('releaseScope')!='FRESH_INSTALLATIONS_ONLY' or
+        manifest.get('upgradeSupported') is not False or
         manifest.get('status')!=APPROVED or
         manifest.get('targetReleaseVersion')!=VERSION or
         manifest.get('source')!=source or
         manifest.get('approvalEvidenceSha256')!=evidence.get('approvalEvidenceSha256') or
         manifest.get('scanEvidenceSha256')!=evidence.get('scanEvidenceSha256') or
+        manifest.get('publisherSpkiSha256')!=trusted or
+        manifest.get('previousPublisherSpkiSha256')!=CLINIC_1_0_0.publisher_spki_sha256 or
+        manifest.get('publisherTrustRotationApprovalSha256')!=evidence.get('publisherTrustRotationApprovalSha256') or
         not SHA256.fullmatch(str(manifest.get('scanEvidenceSha256',''))) or
         manifest.get('reviewedImageIds')!=evidence.get('imageIds') or
         not isinstance(manifest.get('reviewedImageIds'),dict) or
@@ -113,11 +122,16 @@ def review_new_release(release_dir, public_key, archive, evidence_file,
     return {
         'assessment':'VERIFIED_1_0_1_ARCHIVE_PENDING_HUMAN_GATEWAY_APPROVAL',
         'releaseVersion':VERSION,
+        'releaseScope':'FRESH_INSTALLATIONS_ONLY',
+        'upgradeSupported':False,
+        'candidateManifestSha256':manifest['candidateManifestSha256'],
         'releaseId':release.id,
         'verifiedArchiveSha256':check['archive_sha256'],
         'archiveBytes':evidence['archiveBytes'],
         'signedManifestSha256':evidence['signedManifestSha256'],
         'publisherSpkiSha256':trusted,
+        'previousPublisherSpkiSha256':CLINIC_1_0_0.publisher_spki_sha256,
+        'publisherTrustRotationApprovalSha256':evidence['publisherTrustRotationApprovalSha256'],
         'scanEvidenceSha256':manifest['scanEvidenceSha256'],
         'reviewedImageIds':manifest['reviewedImageIds'],
         'backendRevision':source['backendRevision'],

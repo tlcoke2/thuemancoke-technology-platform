@@ -3,7 +3,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 from customer_gateway.download_policy import (
-    CLINIC_1_0_0, Denied, Grant, Membership, Principal, Role, authorize_download,
+    CLINIC_1_0_0, PUBLISHER_101_SPKI_SHA256, Release, Denied, Grant, Membership, Principal, Role, authorize_download,
 )
 
 
@@ -29,6 +29,20 @@ class DownloadPolicyTests(unittest.TestCase):
         self.assertEqual(decision.release, CLINIC_1_0_0)
         self.assertEqual(decision.ttl_seconds, 300)
         self.assertEqual(decision.expires_at, self.now + timedelta(seconds=300))
+
+    def test_rotated_101_signer_is_release_specific_and_100_trust_is_preserved(self):
+        release101 = Release(
+            'tec-epr-clinic-1.0.1','tec-epr-private-releases',
+            'tec-epr/clinic-edition/1.0.1/TEC-EPR-Clinic-Edition-1.0.1-synthetic.tar.gz',
+            'a'*64,20000,PUBLISHER_101_SPKI_SHA256)
+        grant=replace(self.g,release_id=release101.id)
+        decision=self.call(release=release101,grant=grant,requested_release=release101.id)
+        self.assertEqual(decision.release,release101)
+        with self.assertRaises(Denied):
+            self.call(release=replace(release101,publisher_spki_sha256=CLINIC_1_0_0.publisher_spki_sha256),
+                      grant=grant,requested_release=release101.id)
+        with self.assertRaises(Denied):
+            self.call(release=replace(CLINIC_1_0_0,publisher_spki_sha256=PUBLISHER_101_SPKI_SHA256))
 
     def test_flags_fail_closed(self):
         for changes in ({"enabled": False}, {"enabled": "true"},

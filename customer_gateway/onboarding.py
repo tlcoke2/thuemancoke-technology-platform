@@ -71,7 +71,7 @@ class Onboarding:
             # Pending requests create inactive records. Neither login nor proposal grants access.
             c.execute(insert(tenants).values(id=tenant_id, active=False))
             c.execute(insert(memberships).values(tenant_id=tenant_id, subject=subject, active=False))
-            c.execute(insert(grants).values(id=request_id, tenant_id=tenant_id, release_id=RELEASE,
+            c.execute(insert(grants).values(id=request_id, tenant_id=tenant_id, release_id=self.access.release_id,
                 state='pending', proposer=actor, contract_reference=contract_reference,
                 approval_reference=approval_reference, starts=starts, expires=expires))
             c.execute(insert(requests).values(id=request_id, organisation=organisation,

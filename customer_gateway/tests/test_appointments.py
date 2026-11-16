@@ -4,7 +4,7 @@ from sqlalchemy import insert, delete, select, func, event
 from customer_gateway.tests import test_entitlements as fixtures
 from customer_gateway.app import audit
 from customer_gateway.entitlements import admins
-from customer_gateway.appoint_admins import appoint, AppointmentError, lookup_user
+from customer_gateway.appoint_admins import appoint, AppointmentError, database_target, lookup_user, main
 
 
 class AppointmentTests(unittest.TestCase):
@@ -69,6 +69,34 @@ class AppointmentTests(unittest.TestCase):
         finally:
             event.remove(self.engine, 'before_cursor_execute', fail)
         self.assertEqual(self.count_admins(), 0)
+
+    def test_production_preflight_and_atomic_approval_receipt(self):
+        args = dict(owner_email='user_a@example.com', approval_ref='OWNER-AUTHORIZATION-001')
+        self.assertFalse(self.run_appointment(**args, check_only=True))
+        self.assertEqual(self.count_admins(), 0)
+        self.assertTrue(self.run_appointment(**args))
+        with self.engine.connect() as connection:
+            rows = connection.execute(select(audit).where(
+                audit.c.event.startswith('production_'))).mappings().all()
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(len({row['id'].rsplit('-', 1)[0] for row in rows}), 1)
+        receipt = next(row for row in rows if row['event'] == 'production_appointment_approval')
+        self.assertEqual(receipt['subject'], args['approval_ref'])
+
+    def test_connection_overrides_refuse_before_database_access(self):
+        with self.assertRaises(AppointmentError):
+            database_target('postgresql+psycopg://user:secret@db.internal/gateway?host=other.internal')
+
+    def test_staging_cannot_open_production_database(self):
+        env = dict(APP_ENV='staging', GATEWAY_APPOINT_ADMINS='confirmed-staging-pair',
+                   COMMERCIAL_DATABASE_URL='postgresql://user:secret@db.internal/tcl_customer_gateway')
+        argv = ['appoint_admins.py', '--owner-id', 'user_a', '--approver-id', 'user_b',
+                '--approver-email', 'user_b@example.com']
+        with patch.dict('os.environ', env, clear=True), patch('sys.argv', argv):
+            with patch('customer_gateway.appoint_admins.create_engine') as create:
+                with self.assertRaisesRegex(SystemExit, 'cannot target the production database'):
+                    main()
+                create.assert_not_called()
 
     def test_provider_identity_lookup_is_pinned_and_read_only(self):
         with patch('customer_gateway.appoint_admins.httpx.Client') as factory:
