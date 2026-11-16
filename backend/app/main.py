@@ -23,6 +23,7 @@ from .schemas import (
     SalesLeadResponse,
     SalesLeadUpdate,
 )
+from .resend_inbound import router as resend_inbound_router
 from .settings import get_settings
 from .software_store import router as software_store_router
 
@@ -60,6 +61,7 @@ app.add_middleware(
 )
 
 app.include_router(software_store_router)
+app.include_router(resend_inbound_router)
 
 @app.get("/")
 def root():
