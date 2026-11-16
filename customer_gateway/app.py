@@ -312,7 +312,18 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         try:
             data = provider.exchange(code, flow.verifier)
         except httpx.HTTPStatusError as error:
-            logger.warning("Gateway WorkOS code exchange rejected (HTTP %d)", error.response.status_code)
+            reason = "unclassified"
+            try:
+                body = error.response.json()
+                description = body.get("error_description")
+                if description == "Invalid code verifier.":
+                    reason = "invalid_verifier"
+                elif body.get("error") in ("invalid_grant", "invalid_client", "invalid_request", "unauthorized_client"):
+                    reason = body["error"]
+            except (ValueError, AttributeError):
+                pass
+            logger.warning("Gateway WorkOS code exchange rejected (HTTP %d, %s)",
+                           error.response.status_code, reason)
             raise HTTPException(401, "Sign-in could not be verified; please start again") from None
         except Exception as error:
             logger.warning("Gateway WorkOS code exchange failed (%s)", type(error).__name__)
