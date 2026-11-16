@@ -4,11 +4,13 @@ import binascii
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time
 from email import policy
 from email.parser import BytesParser
 from email.utils import parseaddr
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request as HttpRequest, build_opener
 from uuid import UUID
@@ -20,6 +22,7 @@ from .settings import get_settings
 
 
 router = APIRouter()
+logger = logging.getLogger("thueman-coke-api")
 ALIAS = "enquiries@thuemancokelimited.com"
 API_URL = "https://api.resend.com"
 MAX_WEBHOOK_BYTES = 256 * 1024
@@ -58,11 +61,18 @@ def includes_alias(recipients):
     )
 
 
-def fetch(request, limit):
-    with build_opener(NoRedirect()).open(request, timeout=10) as response:
-        data = response.read(limit + 1)
-    if len(data) > limit:
-        raise ValueError("Resend response exceeds the forwarding limit")
+def fetch(request, limit, *, stage):
+    try:
+        with build_opener(NoRedirect()).open(request, timeout=10) as response:
+            data = response.read(limit + 1)
+        if len(data) > limit:
+            raise ValueError("Resend response exceeds the forwarding limit")
+    except HTTPError as error:
+        logger.warning("Inbound forwarding upstream failure stage=%s status=%d", stage, error.code)
+        raise
+    except (OSError, ValueError) as error:
+        logger.warning("Inbound forwarding upstream failure stage=%s kind=%s", stage, type(error).__name__)
+        raise
     return data
 
 
@@ -71,6 +81,7 @@ def forward_message(email_id, api_key, sender, destination):
     received = json.loads(fetch(
         HttpRequest(f"{API_URL}/emails/receiving/{email_id}", headers=auth),
         MAX_WEBHOOK_BYTES,
+        stage="receive_metadata",
     ))
     if not includes_alias(received.get("to")):
         return
@@ -78,7 +89,7 @@ def forward_message(email_id, api_key, sender, destination):
     parsed_link = urlsplit(link)
     if parsed_link.scheme != "https" or not parsed_link.hostname or parsed_link.username or parsed_link.password:
         raise ValueError("Invalid Resend raw email download location")
-    raw = fetch(HttpRequest(link), MAX_RAW_BYTES)
+    raw = fetch(HttpRequest(link), MAX_RAW_BYTES, stage="download_original")
     message = BytesParser(policy=policy.default).parsebytes(raw)
     body = message.get_body(preferencelist=("plain",))
     original_sender = parseaddr(received.get("from") or "")[1]
@@ -107,7 +118,7 @@ def forward_message(email_id, api_key, sender, destination):
             "Idempotency-Key": f"tcl-enterprise-forward/{email_id}",
         },
         method="POST",
-    ), MAX_WEBHOOK_BYTES)
+    ), MAX_WEBHOOK_BYTES, stage="send_forward")
 
 
 @router.post("/api/webhooks/resend/inbound", include_in_schema=False)
@@ -137,6 +148,8 @@ async def resend_inbound(request: Request):
         await run_in_threadpool(
             forward_message, email_id, api_key, settings.from_email, settings.contact_to_email,
         )
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+        if not isinstance(error, OSError):
+            logger.warning("Inbound forwarding processing failure kind=%s", type(error).__name__)
         raise HTTPException(502, "Resend forwarding failed") from None
     return Response(status_code=200)
