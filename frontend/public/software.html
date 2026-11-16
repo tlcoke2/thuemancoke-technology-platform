@@ -71,7 +71,7 @@
       <div class="wrap">
         <span class="eyebrow">TEC Healthcare · Enterprise software</span>
         <h1>Clinic technology built for accountable clinical operations.</h1>
-        <p>Discover TEC EPR Clinic Edition 1.0.0—electronic patient records, appointment coordination, laboratory workflow and controlled, installation-bound software licensing. Available through a managed assessment and onboarding process.</p>
+        <p>Discover TEC EPR Clinic Edition 1.0.1—electronic patient records, appointment coordination, laboratory workflow and controlled, installation-bound software licensing. Available through a managed assessment and onboarding process.</p>
         <div class="hero-actions"><a class="button" href="#request">Request a demo or trial review</a><a class="button secondary" href="#software">Explore capabilities</a></div>
       </div>
     </section>
@@ -85,7 +85,13 @@
           <article class="card"><span class="badge">Laboratory operations</span><h3>Lab & LIMS workflows</h3><ul><li>Lab orders and specimen lifecycle</li><li>Quality control and instrument inventory</li><li>Clinical reports and private attachments</li></ul></article>
           <article class="card"><span class="badge">Controlled distribution</span><h3>Security & support</h3><ul><li>Authenticated role-based permissions</li><li>Signed release verification and licensing</li><li>Onboarding and recovery procedures</li></ul></article>
         </div>
-        <p class="muted">Release 1.0.0 · Published availability is subject to customer eligibility, commercial agreement and verified distribution. This website does not currently offer anonymous software downloads, automatic trial keys or immediate payment checkout. Managed SaaS, high availability, specific device interfaces and regulatory certifications are not implied.</p>
+        <p class="muted">TEC EPR Clinic Edition 1.0.1 is designed for fresh clinic installations only; existing-customer upgrades are not supported by this release. Distribution is restricted to approved customers who verify a publisher-signed archive and obtain a separate installation-bound licence. No anonymous downloads, automatic trial keys, immediate checkout, or unverified regulatory certification is offered.</p>
+        <div class="card" id="approved-customer-download" hidden aria-label="Approved customer software download">
+          <h3>Already approved for TEC EPR?</h3>
+          <p>Sign in securely to your private customer account to request a short-lived download link. Downloading does not issue or activate a software licence.</p>
+          <a id="approved-download-login" class="button" href="#request" rel="noreferrer">Sign in for private download</a>
+          <p class="muted">Verify the archive's publisher signature, SHA-256 and installation prerequisites before using the software. This release supports fresh installations only.</p>
+        </div>
       </div>
     </section>
     <section class="section" id="request" style="background:#eaf2f6">
@@ -138,6 +144,13 @@
     const form = document.getElementById("software-interest");
     const statusBox = document.getElementById("status");
     const submit = document.getElementById("send");
+    const gateway = window.TCL_CUSTOMER_GATEWAY_URL;
+    const approvedPanel = document.getElementById("approved-customer-download");
+    const approvedLogin = document.getElementById("approved-download-login");
+    if (typeof gateway === "string" && /^https:\/\/[^/]+$/.test(gateway)) {
+      approvedLogin.href = gateway + "/auth/login";
+      approvedPanel.hidden = false;
+    }
     const API = window.TCL_SOFTWARE_API;
     if (!API) { statusBox.textContent = "Enquiry configuration unavailable."; submit.disabled = true; return; }
     document.getElementById("year").textContent = String(new Date().getFullYear());
