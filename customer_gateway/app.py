@@ -77,7 +77,8 @@ class WorkOS:
     def exchange(self, code, verifier):
         # HTTPS server-to-server exchange. No browser-provided JWT or user object is trusted.
         with httpx.Client(timeout=10, follow_redirects=False) as client:
-            response = client.post("https://api.workos.com/user_management/authenticate", json={
+            response = client.post("https://api.workos.com/user_management/authenticate",
+                headers={"Authorization": "Bearer " + self.config.api_key}, json={
                 "client_id": self.config.client_id, "client_secret": self.config.api_key,
                 "grant_type": "authorization_code", "code": code, "code_verifier": verifier})
             response.raise_for_status()
