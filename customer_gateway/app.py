@@ -234,7 +234,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         return view("Secure software. Clear customer access.",
             '<div class="grid"><section class="card panel-gradient">'
             '<span class="kicker">TCL SOFTWARE DELIVERY</span>'
-            '<h2>TEC EPR Clinic Edition 1.0.0</h2>'
+            '<h2>TEC EPR Clinic Edition ' + html.escape(config.release_id.rsplit('-', 1)[-1]) + '</h2>'
             '<p>Secure access to your software entitlement, private release download '
             'and verification information.</p><div class="actions">' + sign_in
             + '</div><p class="fine">Access is subject to identity verification and authorisation.</p>'
@@ -594,22 +594,30 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         grant_id = fields.get('grant_id', [''])[0]
         if not grant_id or len(grant_id) > 64:
             raise HTTPException(400, "Invalid download request")
+        artifact = fields.get('artifact', ['archive'])[0]
         try:
-            url, decision = download_service.issue(row['token_hash'], grant_id)
+            url, decision = download_service.issue(row['token_hash'], grant_id, artifact)
         except DownloadDenied as error:
             raise HTTPException(403, str(error)) from None
         except Exception:
             raise HTTPException(503, "Download issuance unavailable; no link released") from None
         # URL appears only in this authenticated no-store HTML response; never
         # persist it, add it to analytics, or place it in logs.
+        signature_form = ''
+        if decision.release.sha256 == 'c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059':
+            signature_form = ('<form method="post" action="/api/downloads">'
+                '<input type="hidden" name="csrf" value="' + html.escape(row['csrf'], quote=True) + '">'
+                '<input type="hidden" name="grant_id" value="' + html.escape(grant_id, quote=True) + '">'
+                '<input type="hidden" name="artifact" value="signature">'
+                '<button>Request publisher signature</button></form>')
         return view("Your private download is ready",
             '<div class="grid"><section class="card panel-gradient">'
             '<span class="stat">Approved private release</span>'
-            '<h2>TEC EPR Clinic Edition 1.0.0</h2>'
+            '<h2>TEC EPR Clinic Edition 1.0.1</h2>'
             '<p>Use this one-time delivery window to obtain your release archive. '
             'Keep the link private and do not forward it.</p>'
             '<div class="actions"><a class="button" rel="noreferrer noopener" href="'
-            + html.escape(url, quote=True) + '">Download release archive</a></div>'
+            + html.escape(url, quote=True) + '">' + ('Download publisher signature' if artifact == 'signature' else 'Download release archive') + '</a></div>'
             '<p class="fine">Link lifetime: ' + str(decision.ttl_seconds)
             + ' seconds. Already-issued links may remain valid until expiry after grant revocation.</p>'
             '</section><section class="card"><span class="kicker">VERIFY THE ARCHIVE</span>'
@@ -617,8 +625,8 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             '<p>After downloading, verify the SHA-256 checksum and independently '
             'validate the publisher signature before installation.</p>'
             '<span class="kicker">EXPECTED SHA-256</span><code class="code">'
-            + decision.release.sha256 + '</code>'
-            '<div class="notice warn">Downloading software does not activate or issue a licence.</div>'
+            + decision.release.sha256 + '</code>' + signature_form
+            + '<div class="notice warn">Downloading software does not activate or issue a licence.</div>'
             '</section></div><section class="card"><div class="segment"><div>'
             '<h2>Need to review your access?</h2>'
             '<p class="muted">Return to your customer portal for your current '
