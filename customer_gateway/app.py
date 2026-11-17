@@ -177,7 +177,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         response = await call_next(request)
         # HTML form POSTs under no-referrer can send Origin: null. Only the
         # account page needs same-origin; keep callback codes fully suppressed.
-        policy = "same-origin" if request.url.path in ("/account", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/customer") else "no-referrer"
+        policy = "same-origin" if request.url.path in ("/account", "/customer/requests", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/customer") else "no-referrer"
         response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
@@ -292,6 +292,8 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         params = dict(client_id=config.client_id, provider="authkit", response_type="code",
                       redirect_uri=config.origin+"/auth/callback", state=state,
                       code_challenge=challenge, code_challenge_method="S256")
+        if request.query_params.get("screen_hint") == "sign-up":
+            params["screen_hint"] = "sign-up"
         response = RedirectResponse("https://api.workos.com/user_management/authorize?"+urlencode(params), 303)
         cookie(response, FLOW_COOKIE, browser, 600)
         return response
@@ -400,6 +402,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             "<input type='hidden' name='csrf' value='" + html.escape(row["csrf"], quote=True) + "'>"
             '<button class="secondary">Sign out securely</button></form></div></section>'
         )
+        body += '<section class="card"><h2>Demo, purchase and licence requests</h2><p>Submit and track your software request using your verified account.</p><a class="button" href="/customer/requests">My software requests</a></section>'
         return view("Welcome to your account", body,
             eyebrow="AUTHENTICATED CUSTOMER PORTAL",
             intro="Manage identity verification, check approved access and continue to secure downloads.")
@@ -412,7 +415,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         body = bytearray()
         async for chunk in request.stream():
             body.extend(chunk)
-            if len(body) > (2048 if request.url.path == "/admin/customers/propose" else 512):
+            if len(body) > (2048 if request.url.path in ("/admin/customers/propose", "/customer/requests") else 512):
                 raise HTTPException(413, "Form too large")
         from urllib.parse import parse_qs
         fields = parse_qs(body.decode("utf-8", errors="replace"))
@@ -500,7 +503,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             return HTMLResponse(message_page("Administrator verification required",
                 "An appointed administrator and recent authenticator verification are required.",
                 action="/account", action_label="Verify my account"), status_code=403)
-        content = '<section class="card"><p class="notice">A download grant does not issue a software licence.</p>'
+        content = '<section class="card"><p><a href="/admin/software-requests">Private software request inbox</a></p><p class="notice">A download grant does not issue a software licence.</p>'
         if config.onboarding_enabled:
             content += "<p><a href='/admin/customers'>Customer onboarding and review</a></p>"
         if not records:
@@ -645,6 +648,11 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         from appoint_admins import lookup_user
     onboarding_service = register(app, config, engine, entitlements, current, protected_form,
         identity_lookup or (lambda subject: lookup_user(config.api_key, subject)))
+    try:
+        from .customer_intake import register as register_intake
+    except ImportError:
+        from customer_intake import register as register_intake
+    register_intake(app, config, engine, current, protected_form, sessions, clock, entitlements)
     return app
 
 
