@@ -61,6 +61,7 @@ function Navbar() {
   const links = [
     ["Services", "#services"],
     ["Enterprise Software", "./software.html"],
+    ["Customer portal", "https://customers.thuemancokelimited.com/start"],
     ["Expertise", "#expertise"],
     ["About", "#about"],
     ["Approach", "#approach"],
@@ -103,7 +104,7 @@ function Hero() {
           </p>
           <div className="hero-actions">
             <a className="btn" href="#contact">Discuss your project <ArrowRight size={18} /></a>
-            <a className="btn btn-ghost" href="./software.html">Explore enterprise software</a>
+            <a className="btn btn-ghost" href="./software.html#request">Software & customer access</a>
           </div>
           <div className="proof-row">
             <div><strong>35+</strong><span>Years global IT experience</span></div>
