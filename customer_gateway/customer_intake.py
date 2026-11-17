@@ -3,12 +3,14 @@ import html
 import re
 import secrets
 from fastapi import HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import MetaData, Table, Column, String, Integer, select, insert, func, text
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from sqlalchemy import MetaData, Table, Column, String, Integer, select, insert, update, func, text
 try:
     from .ui import page
+    from .entitlements import Denied
 except ImportError:
     from ui import page
+    from entitlements import Denied
 
 metadata = MetaData()
 requests = Table('gateway_self_service_requests', metadata,
@@ -21,6 +23,12 @@ requests = Table('gateway_self_service_requests', metadata,
     Column('created', Integer, nullable=False))
 INTENTS = {'demo':'Demo licence request', 'subscription':'Subscription enquiry',
            'outright':'Outright purchase quotation', 'licence':'Installation licence request'}
+TRANSITIONS = {
+    'received': ('reviewing', 'rejected', 'closed'),
+    'reviewing': ('awaiting_customer', 'rejected', 'closed'),
+    'awaiting_customer': ('reviewing', 'rejected', 'closed'),
+    'closed': (), 'rejected': (),
+}
 
 def register(app, config, engine, current, protected_form, sessions, clock, access):
     esc = lambda v: html.escape(str(v), quote=True)
@@ -60,7 +68,7 @@ def register(app, config, engine, current, protected_form, sessions, clock, acce
         if not records: body+='<p>You have no requests yet.</p>'
         for r in records:
             body+='<h3>'+esc(INTENTS[r['intent']])+'</h3><p>'+esc(r['organisation'])+' — '+esc(r['state'])+'</p><code class="code">'+esc(r['id'])+'</code>'
-        body+='</section><p><a href="/customer">Approved downloads</a> · <a href="https://thuemancokelimited.com/software.html#pricing">View subscription pricing</a> · <a href="/account">My account</a></p>'
+        body+='</section><p><a href="/customer/requests/export">Export my request data (JSON)</a> · <a href="https://thuemancokelimited.com/privacy.html">Privacy and data rights</a></p><p><a href="/customer">Approved downloads</a> · <a href="https://thuemancokelimited.com/software.html#pricing">View subscription pricing</a> · <a href="/account">My account</a></p>'
         return page('My software requests',body,intro='Submit once and track your request here. Requests do not grant download or licence access.')
 
     @app.post('/customer/requests')
@@ -88,7 +96,25 @@ def register(app, config, engine, current, protected_form, sessions, clock, acce
                 raise HTTPException(429,'Daily request limit reached; review your existing requests')
             c.execute(insert(requests).values(id=values['request_id'],subject=row['subject'],organisation=values['organisation'],
                 country=values['country'],intent=values['intent'],state='received',created=now))
+            access._event(c,'software_request_received',row['subject'],values['request_id'],now)
         return RedirectResponse('/customer/requests',303)
+
+    @app.get('/customer/requests/export')
+    def export(request: Request):
+        row=current(request)
+        after=request.query_params.get('after','')
+        if after and not re.fullmatch('[a-f0-9]{32}',after):
+            raise HTTPException(400,'Invalid export cursor')
+        with engine.begin() as c:
+            query=select(requests).where(requests.c.subject==row['subject'])
+            if after: query=query.where(requests.c.id>after)
+            records=c.execute(query.order_by(requests.c.id).limit(501)).mappings().all()
+            more=len(records)>500
+            records=records[:500]
+            access._event(c,'software_request_exported',row['subject'],'self-service',int(clock()))
+        return JSONResponse({'scope':'Your commercial software requests only; not clinical records or WorkOS identity data',
+            'requests':[dict(r) for r in records], 'next_cursor':records[-1]['id'] if more else None},
+            headers={'Content-Disposition':'attachment; filename="tcl-software-requests.json"'})
 
     @app.get('/admin/software-requests', response_class=HTMLResponse)
     def inbox(request: Request):
@@ -97,7 +123,7 @@ def register(app, config, engine, current, protected_form, sessions, clock, acce
             with engine.begin() as c:
                 access._actor(c,row['token_hash'],int(clock()))
                 records=c.execute(select(requests).order_by(requests.c.created.desc()).limit(100)).mappings().all()
-        except Exception:
+        except Denied:
             raise HTTPException(403,'Appointed administrator and recent MFA required') from None
         body='<section class="card"><h2>Private customer requests</h2><p>Verify identity and commercial terms before using the existing customer approval workflow. No access is granted by this inbox.</p>'
         for r in records:
@@ -105,4 +131,33 @@ def register(app, config, engine, current, protected_form, sessions, clock, acce
             for k in ('id','subject','state'):
                 body+='<dt>'+esc(k.title())+'</dt><dd>'+esc(r[k])+'</dd>'
             body+='</dl>'
+            options=''.join('<option value="'+state+'">'+esc(state.replace('_',' ').title())+'</option>' for state in TRANSITIONS.get(r['state'],()))
+            if options:
+                body+='<form method="post" action="/admin/software-requests/'+esc(r['id'])+'/status">'
+                body+='<input type="hidden" name="csrf" value="'+esc(row['csrf'])+'"><input type="hidden" name="expected_state" value="'+esc(r['state'])+'">'
+                body+='<label>Request status<select name="state">'+options+'</select></label><button>Update request status</button></form>'
         return page('Software request inbox',body+'</section><p><a href="/admin/customers">Customer approval workspace</a></p>')
+
+    @app.post('/admin/software-requests/{request_id}/status')
+    async def change_status(request_id: str, request: Request):
+        row=current(request)
+        fields=await protected_form(request,row)
+        state=fields.get('state',[''])[0]
+        expected=fields.get('expected_state',[''])[0]
+        if not re.fullmatch('[a-f0-9]{32}',request_id) or state not in TRANSITIONS:
+            raise HTTPException(400,'Invalid request status')
+        now=int(clock())
+        try:
+            with engine.begin() as c:
+                actor=access._actor(c,row['token_hash'],now)
+                record=c.execute(select(requests).where(requests.c.id==request_id).with_for_update()).mappings().first()
+                if not record: raise HTTPException(404,'Request not found')
+                if record['state']!=expected:
+                    raise HTTPException(409,'Request changed; reload before updating')
+                if state not in TRANSITIONS.get(record['state'],()):
+                    raise HTTPException(409,'Status transition is not permitted')
+                c.execute(update(requests).where(requests.c.id==request_id).values(state=state))
+                access._event(c,'software_request_'+state,actor,request_id,now)
+        except Denied:
+            raise HTTPException(403,'Appointed administrator and recent MFA required') from None
+        return RedirectResponse('/admin/software-requests',303)

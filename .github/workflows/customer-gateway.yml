@@ -1,5 +1,8 @@
 name: Isolated customer gateway sign-in
 on:
+  push:
+    branches: ['release/licence-final-publication']
+    paths: ['customer_gateway/**', '.github/workflows/customer-gateway.yml']
   pull_request:
     paths: ['customer_gateway/**', '.github/workflows/customer-gateway.yml']
   workflow_dispatch:
@@ -57,4 +60,4 @@ jobs:
         run: docker build -f customer_gateway/Dockerfile --tag tcl-gateway-pr:ci customer_gateway
       - name: Require production-only runtime modules included
         run: |
-          docker run --rm --entrypoint python tcl-gateway-pr:ci -c "import app, release_101_config, init_production, download_policy; print('PASS_GATEWAY_PRODUCTION_RUNTIME_IMPORTS')"
+          docker run --rm --entrypoint python tcl-gateway-pr:ci -c "import app, customer_intake, release_101_config, init_production, download_policy; print('PASS_GATEWAY_PRODUCTION_RUNTIME_IMPORTS')"

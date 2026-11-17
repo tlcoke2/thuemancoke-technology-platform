@@ -1,10 +1,11 @@
 import unittest
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlalchemy import insert,select,func
 from customer_gateway.tests.test_entitlements import EntitlementTests
 from customer_gateway.app import Config,create_app,sessions,digest,SESSION_COOKIE
 from customer_gateway.customer_intake import metadata,requests
-from customer_gateway.entitlements import grants
+from customer_gateway.entitlements import grants,events,elevations
 
 class IntakeTests(unittest.TestCase):
     def setUp(self):
@@ -51,3 +52,60 @@ class IntakeTests(unittest.TestCase):
         self.submit(organisation='<script>unsafe</script>')
         self.assertNotIn('<script>unsafe</script>',self.client.get('/customer/requests').text)
         self.assertEqual(self.submit(organisation='Different').status_code,409)
+
+    def become_admin(self, elevated=True):
+        token=digest('admin-browser')
+        with self.engine.begin() as c:
+            c.execute(insert(sessions).values(token_hash=token,subject='user_a',csrf='synthetic',expires=10900))
+            if elevated:
+                c.execute(insert(elevations).values(session_hash=token,subject='user_a',verified_at=9990,expires=10290,provider_reference='synthetic-only'))
+        self.client.cookies.set(SESSION_COOKIE,'admin-browser')
+
+    def status(self,state='reviewing',expected='received'):
+        return self.client.post('/admin/software-requests/'+'a'*32+'/status',data={'csrf':'synthetic','state':state,'expected_state':expected},headers={'Origin':'https://customers.example.com'},follow_redirects=False)
+
+    def test_admin_status_requires_mfa_and_never_creates_grants(self):
+        self.submit()
+        self.assertEqual(self.status().status_code,403)
+        self.become_admin()
+        self.assertEqual(self.status().status_code,303)
+        with self.engine.connect() as c:
+            self.assertEqual(c.scalar(select(requests.c.state)),'reviewing')
+            self.assertEqual(c.scalar(select(func.count()).select_from(grants)),0)
+            self.assertEqual(c.scalar(select(func.count()).select_from(events).where(events.c.event=='software_request_reviewing')),1)
+
+    def test_stale_and_terminal_updates_refused(self):
+        self.submit(); self.become_admin()
+        self.assertEqual(self.status('closed').status_code,303)
+        self.assertEqual(self.status().status_code,409)
+        self.assertEqual(self.status('reviewing','closed').status_code,409)
+        self.assertEqual(self.status('approved','closed').status_code,400)
+
+    def test_admin_without_elevation_denied(self):
+        self.submit(); self.become_admin(False)
+        self.assertEqual(self.status().status_code,403)
+
+    def test_export_is_self_scoped_and_no_store(self):
+        self.submit()
+        with self.engine.begin() as c:
+            c.execute(insert(requests).values(id='b'*32,subject='user_other',organisation='foreign-secret',country='UK',intent='demo',state='received',created=10000))
+        r=self.client.get('/customer/requests/export')
+        self.assertEqual(r.status_code,200)
+        self.assertNotIn('foreign-secret',r.text)
+        self.assertEqual(len(r.json()['requests']),1)
+        self.assertEqual(r.headers['cache-control'],'no-store')
+        self.assertIn('attachment',r.headers['content-disposition'])
+        self.assertEqual(self.client.get('/customer/requests/export?after=invalid').status_code,400)
+
+    def test_audit_failure_rolls_back_request_creation(self):
+        with patch('customer_gateway.entitlements.Entitlements._event',side_effect=RuntimeError('synthetic audit failure')):
+            with self.assertRaises(RuntimeError): self.submit()
+        with self.engine.connect() as c:
+            self.assertEqual(c.scalar(select(func.count()).select_from(requests)),0)
+
+    def test_security_headers_and_admin_form_referrer_policy(self):
+        self.become_admin()
+        r=self.client.get('/admin/software-requests')
+        self.assertEqual(r.headers['referrer-policy'],'same-origin')
+        self.assertEqual(r.headers['x-frame-options'],'DENY')
+        self.assertEqual(r.headers['cross-origin-resource-policy'],'same-origin')

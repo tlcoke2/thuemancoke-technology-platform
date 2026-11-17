@@ -177,11 +177,13 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         response = await call_next(request)
         # HTML form POSTs under no-referrer can send Origin: null. Only the
         # account page needs same-origin; keep callback codes fully suppressed.
-        policy = "same-origin" if request.url.path in ("/account", "/customer/requests", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/customer") else "no-referrer"
+        policy = "same-origin" if request.url.path in ("/account", "/customer/requests", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/admin/software-requests", "/customer") else "no-referrer"
         response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-            "Strict-Transport-Security": "max-age=31536000"})
+            "Strict-Transport-Security": "max-age=31536000",
+            "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+            "Cross-Origin-Resource-Policy": "same-origin"})
         if request.url.path == "/auth/mfa/enroll":
             response.headers["Content-Security-Policy"] += "; img-src data:"
         return response
