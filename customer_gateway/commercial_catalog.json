@@ -1,6 +1,6 @@
 {
   "format": "tec-commercial-catalog/v1",
-  "status": "prepared_not_provisioned_in_stripe",
+  "status": "stripe_live_subscription_catalog_verified_checkout_not_activated",
   "confirmedOn": "2026-11-17",
   "seller": {
     "legalName": "Thueman Coke Limited",
@@ -40,13 +40,19 @@
         "code": "clinic_essentials",
         "name": "Clinic Essentials",
         "implementationMinor": 17500000,
-        "monthlyMinor": 2500000
+        "monthlyMinor": 2500000,
+        "stripeProductId": "tec_epr_101_essentials",
+        "stripeMonthlyPriceId": "price_1UcvGKK17IwlxhlLbeqGL0ja",
+        "implementationStripePriceId": null
       },
       {
         "code": "professional",
         "name": "Professional",
         "implementationMinor": 35000000,
-        "monthlyMinor": 5500000
+        "monthlyMinor": 5500000,
+        "stripeProductId": "tec_epr_101_professional",
+        "stripeMonthlyPriceId": "price_1UcvGcK17IwlxhlL2URNUEij",
+        "implementationStripePriceId": null
       },
       {
         "code": "enterprise",
@@ -55,25 +61,33 @@
         "monthlyMinor": 11000000,
         "startingPrice": true,
         "largeDeployments": "private quotation",
-        "enquiryEmail": "tlcoke@hotmail.com"
+        "enquiryEmail": "tlcoke@hotmail.com",
+        "stripeProductId": "tec_epr_101_enterprise",
+        "stripeMonthlyPriceId": "price_1UcvGnK17IwlxhlLyVmEykFo",
+        "implementationStripePriceId": null
       }
     ],
     "outright": "private quotation; no perpetual licence price inferred from implementation fees"
   },
   "activationRequirements": [
-    "Stripe write reauthorisation",
-    "Correct tax head-office address and verify readback",
     "Confirm actual registrations recorded for the legal seller in Stripe",
-    "Create approved product/price catalogue",
     "Validate tax and checkout in an isolated sandbox",
     "Verify signed idempotent payment webhooks",
-    "Protect separate licence signer and issuance ledger"
+    "Protect separate licence signer and issuance ledger",
+    "Classify implementation services separately before creating their prices"
   ],
   "taxEvidence": {
     "ownerStatesUKVATAndJamaicaGCTRegistered": true,
     "registrationNumbers": "not supplied",
     "stripeRegistrationsObserved": 0,
-    "headOfficeUpdate": "blocked_by_missing_write_scope",
-    "warning": "A general tax-paying company status does not itself prove VAT or GCT registration; no rates or registrations have been invented."
+    "headOfficeUpdate": "accepted_active_watford_GB",
+    "warning": "A general tax-paying company status does not itself prove VAT or GCT registration; no rates or registrations have been invented.",
+    "taxCollectionVerified": false
+  },
+  "stripe": {
+    "account": "acct_1TgB8dK17IwlxhlL",
+    "livemode": true,
+    "verifiedOn": "2026-11-17",
+    "checkoutActivated": false
   }
 }
