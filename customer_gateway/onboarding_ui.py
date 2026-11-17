@@ -176,8 +176,9 @@ def register(app, config, engine, access, current, protected_form, lookup):
             output += '</section>'
         output += '</div>'
         output += ('<section class="card"><h2>Release and licence information</h2>'
-            '<p>Downloading an archive does not activate or issue a licence. '
-            'Your release is subject to approved access and separate licensing.</p>')
+            '<p>After installing TEC EPR, open Subscription in the installed application. '
+            'Give your Installation ID and grant reference to the TEC administrator managing your organisation. '
+            'Use the Subscription screen to apply the signed licence you receive.</p>')
         if not (config.downloads_enabled and config.release_approved):
             output += '<p class="notice">Private download issuance is currently disabled.</p>'
         output += '<a class="button secondary" href="/account">My account</a></section>'

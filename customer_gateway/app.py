@@ -234,7 +234,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         return view("Secure software. Clear customer access.",
             '<div class="grid"><section class="card panel-gradient">'
             '<span class="kicker">TCL SOFTWARE DELIVERY</span>'
-            '<h2>TEC EPR Clinic Edition 1.0.0</h2>'
+            '<h2>TEC EPR Clinic Edition ' + html.escape(config.release_id.rsplit('-', 1)[-1]) + '</h2>'
             '<p>Secure access to your software entitlement, private release download '
             'and verification information.</p><div class="actions">' + sign_in
             + '</div><p class="fine">Access is subject to identity verification and authorisation.</p>'
@@ -618,7 +618,12 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             'validate the publisher signature before installation.</p>'
             '<span class="kicker">EXPECTED SHA-256</span><code class="code">'
             + decision.release.sha256 + '</code>'
-            '<div class="notice warn">Downloading software does not activate or issue a licence.</div>'
+            '<div class="notice"><strong>Install and activate TEC EPR</strong>'
+            '<p>Extract the verified archive and follow its Windows installation instructions. '
+            'If setup asks for a verification key, obtain the release-specific public licence verification key from TEC support before continuing.</p>'
+            '<p>After signing in to the installed application, open Subscription and give your '
+            'Installation ID and grant reference to the TEC administrator managing your organisation. '
+            'Apply the signed licence you receive on the same Subscription screen.</p></div>'
             '</section></div><section class="card"><div class="segment"><div>'
             '<h2>Need to review your access?</h2>'
             '<p class="muted">Return to your customer portal for your current '
