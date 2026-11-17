@@ -228,7 +228,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
     def home():
         sign_in = ('<a class="button" href="/auth/login">Sign in securely</a>' if config.enabled
                    else '<p class="notice warn">Sign-in is currently disabled.</p>')
-        release_status = ('Controlled staging downloads are enabled'
+        release_status = (('Controlled production downloads are enabled' if config.environment == 'production' else 'Controlled staging downloads are enabled')
                           if config.downloads_enabled and config.release_approved
                           else 'Private downloads require active, approved access')
         return view("Secure software. Clear customer access.",
