@@ -8,12 +8,24 @@ import assert from 'node:assert/strict';
 
 const checks = [
   {
+    title: 'Secure customer centre',
+    url: 'https://customers.thuemancokelimited.com/start',
+    test: (data, response) => {
+      assert.equal(response.status, 200);
+      assert.match(data, /Create customer account/);
+      assert.match(data, /customer\/requests/);
+      assert.equal(response.headers.get('x-frame-options'), 'DENY');
+      assert.match(response.headers.get('cache-control') || '', /no-store/);
+    }
+  },
+  {
     title: 'Apex website TEC EPR product page',
     url: 'https://thuemancokelimited.com/software.html',
     test: (data, response) => {
       assert.equal(response.status, 200, 'Expected 200');
       assert.match(data, /TEC EPR Clinic Edition/, 'Product identity missing');
-      assert.match(data, /api\/contact/, 'Existing business CRM enquiry flow not available in HTML');
+      assert.match(data, /https:\/\/customers\.thuemancokelimited\.com\/start/, 'Customer registration entry missing');
+      assert.match(data, /customer\/requests/, 'Private request entry missing');
       assert.doesNotMatch(data, /\.tar\.gz|private\.pem/i, 'Unexpected distribution master/key reference');
     }
   },
