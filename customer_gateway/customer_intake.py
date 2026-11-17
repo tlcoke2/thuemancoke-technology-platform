@@ -68,7 +68,7 @@ def register(app, config, engine, current, protected_form, sessions, clock, acce
         if not records: body+='<p>You have no requests yet.</p>'
         for r in records:
             body+='<h3>'+esc(INTENTS[r['intent']])+'</h3><p>'+esc(r['organisation'])+' — '+esc(r['state'])+'</p><code class="code">'+esc(r['id'])+'</code>'
-        body+='</section><p><a href="/customer/requests/export">Export my request data (JSON)</a> · <a href="https://thuemancokelimited.com/privacy.html">Privacy and data rights</a></p><p><a href="/customer">Approved downloads</a> · <a href="https://thuemancokelimited.com/software.html#pricing">View subscription pricing</a> · <a href="/account">My account</a></p>'
+        body+='</section><p><a href="/customer/requests/export">Export my request data (JSON)</a> · <a href="https://thuemancokelimited.com/privacy.html">Privacy and data rights</a></p><p><a href="/customer/billing">Subscriptions and billing</a> · <a href="/customer">Approved downloads</a> · <a href="https://thuemancokelimited.com/software.html#pricing">View subscription pricing</a> · <a href="/account">My account</a></p>'
         return page('My software requests',body,intro='Submit once and track your request here. Requests do not grant download or licence access.')
 
     @app.post('/customer/requests')
