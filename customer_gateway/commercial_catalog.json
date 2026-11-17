@@ -70,24 +70,47 @@
     "outright": "private quotation; no perpetual licence price inferred from implementation fees"
   },
   "activationRequirements": [
-    "Confirm actual registrations recorded for the legal seller in Stripe",
     "Validate tax and checkout in an isolated sandbox",
     "Verify signed idempotent payment webhooks",
     "Protect separate licence signer and issuance ledger",
-    "Classify implementation services separately before creating their prices"
+    "Classify implementation services separately before creating their prices",
+    "Verify Stripe US account is correctly contracted for the UK legal seller",
+    "Confirm Jamaica GCT collection route and applicable implementation services tax classification",
+    "Configure runtime restricted key, webhook signing secret and isolated sandbox acceptance"
   ],
   "taxEvidence": {
     "ownerStatesUKVATAndJamaicaGCTRegistered": true,
     "registrationNumbers": "not supplied",
-    "stripeRegistrationsObserved": 0,
+    "stripeRegistrationsObserved": 1,
     "headOfficeUpdate": "accepted_active_watford_GB",
     "warning": "A general tax-paying company status does not itself prove VAT or GCT registration; no rates or registrations have been invented.",
-    "taxCollectionVerified": false
+    "taxCollectionVerified": "UK example only; Jamaica unresolved",
+    "ukRegistrationId": "taxreg_1UcvPlK17IwlxhlLXpxAAgtv",
+    "ukRegistrationStatus": "active",
+    "ukInvoicePreview": {
+      "id": "upcoming_in_1UcvQ7K17IwlxhlLsshKTwQm",
+      "country": "GB",
+      "taxabilityReason": "standard_rated",
+      "currency": "jmd",
+      "subtotalMinor": 2500000,
+      "taxMinor": 500000,
+      "totalMinor": 3000000,
+      "charged": false
+    },
+    "stripeAccountCountryObserved": "US",
+    "sellerAccountCountryAlignment": "requires owner/account verification",
+    "jamaica": "Not present in Stripe Tax supported country list or registration options; no GCT rate invented"
   },
   "stripe": {
     "account": "acct_1TgB8dK17IwlxhlL",
     "livemode": true,
     "verifiedOn": "2026-11-17",
-    "checkoutActivated": false
+    "checkoutActivated": false,
+    "portalConfiguration": "bpc_1UcvXqK17IwlxhlLkoQVKzvg",
+    "portalFeatures": [
+      "invoice_history",
+      "payment_method_update",
+      "cancel_at_period_end"
+    ]
   }
 }

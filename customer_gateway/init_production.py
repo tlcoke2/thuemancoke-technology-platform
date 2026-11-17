@@ -14,13 +14,15 @@ try:
     from .mfa import metadata as access_metadata
     from .onboarding import metadata as onboarding_metadata
     from .customer_intake import metadata as intake_metadata
+    from .billing import metadata as billing_metadata
 except ImportError:
     from app import metadata as auth_metadata
     from mfa import metadata as access_metadata
     from onboarding import metadata as onboarding_metadata
     from customer_intake import metadata as intake_metadata
+    from billing import metadata as billing_metadata
 
-SCHEMAS = (auth_metadata, access_metadata, onboarding_metadata, intake_metadata)
+SCHEMAS = (auth_metadata, access_metadata, onboarding_metadata, intake_metadata, billing_metadata)
 EXPECTED_TABLES = set().union(*(set(m.tables) for m in SCHEMAS))
 FORBIDDEN_NAMES = {"postgres", "template0", "template1", "railway", "gateway_test"}
 

@@ -177,7 +177,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         response = await call_next(request)
         # HTML form POSTs under no-referrer can send Origin: null. Only the
         # account page needs same-origin; keep callback codes fully suppressed.
-        policy = "same-origin" if request.url.path in ("/account", "/customer/requests", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/admin/software-requests", "/customer") else "no-referrer"
+        policy = "same-origin" if request.url.path in ("/account", "/customer/requests", "/customer/billing", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/admin/software-requests", "/customer") else "no-referrer"
         response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
@@ -404,6 +404,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             "<input type='hidden' name='csrf' value='" + html.escape(row["csrf"], quote=True) + "'>"
             '<button class="secondary">Sign out securely</button></form></div></section>'
         )
+        body += '<section class="card"><h2>Subscriptions and billing</h2><p>View your software subscription, secure checkout and payment status.</p><a class="button" href="/customer/billing">My subscriptions</a></section>'
         body += '<section class="card"><h2>Demo, purchase and licence requests</h2><p>Submit and track your software request using your verified account.</p><a class="button" href="/customer/requests">My software requests</a></section>'
         return view("Welcome to your account", body,
             eyebrow="AUTHENTICATED CUSTOMER PORTAL",
@@ -600,6 +601,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         if not grant_id or len(grant_id) > 64:
             raise HTTPException(400, "Invalid download request")
         artifact = fields.get('artifact', ['archive'])[0]
+        billing_service.require_download_clear(row['subject'])
         try:
             url, decision = download_service.issue(row['token_hash'], grant_id, artifact)
         except DownloadDenied as error:
@@ -655,6 +657,11 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
     except ImportError:
         from customer_intake import register as register_intake
     register_intake(app, config, engine, current, protected_form, sessions, clock, entitlements)
+    try:
+        from .billing import register as register_billing
+    except ImportError:
+        from billing import register as register_billing
+    billing_service = register_billing(app, config, engine, current, protected_form, clock, entitlements)
     return app
 
 
