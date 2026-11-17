@@ -1,6 +1,6 @@
 {
   "format": "tec-commercial-catalog/v1",
-  "status": "stripe_live_subscription_catalog_verified_checkout_not_activated",
+  "status": "integration_deployed_payment_activation_blocked_by_stripe_verification",
   "confirmedOn": "2026-11-17",
   "seller": {
     "legalName": "Thueman Coke Limited",
@@ -111,6 +111,15 @@
       "invoice_history",
       "payment_method_update",
       "cancel_at_period_end"
-    ]
+    ],
+    "accountVerification": {
+      "country": "US",
+      "businessType": "individual",
+      "chargesEnabled": false,
+      "payoutsEnabled": false,
+      "disabledReason": "requirements.past_due",
+      "companyNamePresent": false,
+      "requiredVerification": "Individual address, identification and document fields remain due; owner must connect the correct verified company account"
+    }
   }
 }
