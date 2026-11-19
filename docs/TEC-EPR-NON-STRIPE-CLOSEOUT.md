@@ -75,3 +75,12 @@ runbook. It is a working evidence pack, not completed regulatory approval.
    An unavailable endpoint produces failure, not an assumed pass.
 8. Before any clinical rollout, close the site-specific acceptance items above.
    Preserve the original signed release and separate evidence for every change.
+
+## Further implementation under existing owner approval
+
+- Added the source-verified [clinical module manual](TEC-EPR-CLINICAL-MODULE-MANUAL.md). Installed-screen illustrations, outstanding workflow acceptance and clinical review remain explicit.
+- Reconciled historical approval evidence with the exact final release in [the approval crosswalk](assurance/FINAL-RELEASE-APPROVAL-CROSSWALK.md). Existing authorisation is retained; no general approval is being requested again.
+- Added a release-bound local evidence checker with negative tests and a read-only Cloudflare collector. Neither treats missing evidence as a pass.
+- Prepared concrete independent-assessment, privacy/regulatory, isolated-recovery and protected-signer work packages in [the execution plan](assurance/ASSESSMENT-AND-RECOVERY-PLAN.md). These are execution preparation, not fabricated completed assessments.
+
+- Implemented a separate [local licence worker](assurance/LOCAL-LICENCE-WORKER.md): pinned approval signature, encrypted signing key, claim validation, durable duplicate prevention and retry-safe local output. Production commissioning, authenticated approval transport and delivery remain outstanding. No production private key was accessed.
