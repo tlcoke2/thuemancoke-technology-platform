@@ -25,6 +25,17 @@ patient record is changed by this review.
   records, scan arbitrary hosts or change access. Record actual execution results
   separately. No pass is inferred merely because the script exists.
 
+## Live edge compatibility correction
+
+The live help HTML showed a support mail link rewritten to Cloudflare's email
+protection route plus an injected email-decode script. The gateway intentionally
+uses a script-free CSP, so that script could not run. Responses now include
+`Cache-Control: no-store, no-transform` to prevent this documented edge rewrite,
+while retaining the strict CSP. The passive check also verifies the support mail
+link remains intact. This does not prove WAF/bot rule configuration.
+
+Reference: https://developers.cloudflare.com/waf/tools/scrape-shield/email-address-obfuscation/
+
 ## Non-Stripe work that cannot honestly be called complete
 
 | Item | Required closure evidence | Responsible party / boundary |

@@ -178,7 +178,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         # HTML form POSTs under no-referrer can send Origin: null. Only the
         # account page needs same-origin; keep callback codes fully suppressed.
         policy = "same-origin" if request.url.path in ("/account", "/customer/requests", "/customer/billing", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/admin/software-requests", "/customer") else "no-referrer"
-        response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": policy,
+        response.headers.update({"Cache-Control": "no-store, no-transform", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
             "Strict-Transport-Security": "max-age=31536000",
