@@ -1,0 +1,33 @@
+{
+  "format": "tec-non-stripe-implementation/v1",
+  "reviewDate": "2026-11-18",
+  "archiveSha256": "c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059",
+  "manifestSha256": "cd66121ca8dfdbec30899be998cfb30d8ee13570e93cab967effcb9d83c3bf1b",
+  "tests": {
+    "evidenceAndCloudflareFixtures": {
+      "passed": 13,
+      "failed": 0
+    },
+    "localSignerSyntheticKeys": {
+      "passed": 11,
+      "failed": 0
+    }
+  },
+  "browserObservations": {
+    "railwayProductionGateway": "Online",
+    "railwayRecoveryService": "Postgres-Recovery Online with postgres-volume attached",
+    "cloudflare": "Sign-in page; no authenticated configuration access"
+  },
+  "notEstablished": [
+    "Independent penetration report and retest",
+    "Final-release clinical/regulatory/privacy/legal decisions",
+    "Cloudflare rule detail and alert delivery",
+    "Windows encryption and isolated restore acceptance",
+    "Installed clinical screen illustrations and all-module acceptance",
+    "Protected automatic approval transport and signer commissioning/customer delivery"
+  ],
+  "productionKeysAccessed": false,
+  "productionLicenceIssued": false,
+  "immutableArchiveChanged": false,
+  "stripeChanged": false
+}
