@@ -57,6 +57,14 @@ class ReadbackVerificationTests(unittest.TestCase):
             self.assertEqual(main(['--file', str(self.path), '--evidence-json', str(evidence_path)]), 2)
         self.assertEqual(evidence_path.read_text(encoding='utf-8'), 'prior-evidence')
 
+    def test_current_licence_archive_requires_explicit_release_selection(self):
+        with patch('customer_gateway.verify_downloaded_release.LICENCE_1_0_1', self.release):
+            self.assertEqual(main(['--file',str(self.path),'--release','1.0.1-licence']),0)
+            self.assertEqual(main(['--file',str(self.path)]),1)
+        from customer_gateway.download_policy import LICENCE_1_0_1
+        self.assertEqual(LICENCE_1_0_1.bytes,289009684)
+        self.assertEqual(LICENCE_1_0_1.sha256,'c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059')
+
     def test_cli_exit_code_for_mismatch(self):
         with patch('customer_gateway.verify_downloaded_release.CLINIC_1_0_0', self.release):
             self.assertEqual(main(['--file', str(self.path)]), 0)

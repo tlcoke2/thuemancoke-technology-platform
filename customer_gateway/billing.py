@@ -106,7 +106,7 @@ class StripeBilling:
             'client_reference_id': order['id'],
             'success_url': origin + '/customer/billing?checkout=returned',
             'cancel_url': origin + '/customer/billing?checkout=cancelled',
-            'integration_identifier': 'tcl_gateway_' + ''.join(secrets.choice('abcdefghijklmnopqrstuvwxyz') for _ in range(8)),
+            'integration_identifier': 'tcl_gateway_' + ''.join(chr(97 + int(ch, 16)) for ch in order['id'][:8]),
             'expires_at': order['created'] + 1800,
         }, options={'idempotency_key': 'tcl-checkout-' + order['id']})
 

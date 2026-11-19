@@ -404,6 +404,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             "<input type='hidden' name='csrf' value='" + html.escape(row["csrf"], quote=True) + "'>"
             '<button class="secondary">Sign out securely</button></form></div></section>'
         )
+        body += '<section class="card"><h2>Installation and licence help</h2><p>Follow the customer guide for installation, activation, renewal and safe recovery.</p><a class="button secondary" href="/help">Customer help centre</a></section>'
         body += '<section class="card"><h2>Subscriptions and billing</h2><p>View your software subscription, secure checkout and payment status.</p><a class="button" href="/customer/billing">My subscriptions</a></section>'
         body += '<section class="card"><h2>Demo, purchase and licence requests</h2><p>Submit and track your software request using your verified account.</p><a class="button" href="/customer/requests">My software requests</a></section>'
         return view("Welcome to your account", body,
@@ -662,6 +663,11 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
     except ImportError:
         from billing import register as register_billing
     billing_service = register_billing(app, config, engine, current, protected_form, clock, entitlements)
+    try:
+        from .customer_help import register as register_help
+    except ImportError:
+        from customer_help import register as register_help
+    register_help(app)
     return app
 
 

@@ -231,4 +231,8 @@ class BillingConfigurationTests(unittest.TestCase):
         self.assertNotIn('payment_method_types',args)
         self.assertEqual(args['expires_at'],11800)
         self.assertRegex(args['integration_identifier'],r'^tcl_gateway_[a-z]{8}$')
+        original=dict(args)
+        adapter.create({'id':'a'*32,'created':10000},{'stripeMonthlyPriceId':price.id,'monthlyMinor':2500000,'stripeProductId':'prod_synthetic'},'https://customers.example.com')
+        self.assertEqual(adapter.client.v1.checkout.sessions.create.call_args.args[0],original)
+
         self.assertEqual(adapter.client.v1.checkout.sessions.create.call_args.kwargs['options']['idempotency_key'],'tcl-checkout-'+'a'*32)
