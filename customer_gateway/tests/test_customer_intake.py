@@ -49,6 +49,16 @@ class IntakeTests(unittest.TestCase):
             self.assertEqual(c.scalar(select(func.count()).select_from(grants)),0)
         self.assertNotIn('<script>unsafe</script>',self.client.get('/customer/requests?intent=<script>unsafe</script>').text)
 
+    def test_guest_payment_link_request_shows_registration_without_private_data(self):
+        self.submit(organisation='PRIVATE ORGANISATION')
+        self.client.cookies.clear()
+        r=self.client.get('/customer/requests?intent=paylink_professional')
+        self.assertEqual(r.status_code,200)
+        self.assertIn('Payment link — Professional',r.text)
+        self.assertIn('Create customer account',r.text)
+        self.assertNotIn('PRIVATE ORGANISATION',r.text)
+        self.assertEqual(self.submit(intent='paylink_professional').status_code,401)
+
     def test_daily_limit(self):
         for i in range(5): self.assertEqual(self.submit(request_id=f'{i:032x}').status_code,303)
         self.assertEqual(self.submit(request_id='b'*32).status_code,429)

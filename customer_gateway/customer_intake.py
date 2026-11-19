@@ -55,7 +55,16 @@ def register(app, config, engine, current, protected_form, sessions, clock, acce
 
     @app.get('/customer/requests', response_class=HTMLResponse)
     def request_page(request: Request):
-        row=current(request)
+        selected=request.query_params.get('intent','demo')
+        if selected not in INTENTS: selected='demo'
+        try:
+            row=current(request)
+        except HTTPException as error:
+            if error.status_code != 401: raise
+            return page('Sign in to submit your request',
+                '<section class="card"><h2>'+esc(INTENTS[selected])+'</h2><p>Create your verified customer account or sign in to submit and track this request. After sign-in, open My software requests and select '+esc(INTENTS[selected])+'.</p>'
+                '<p><a class="button" href="/auth/login?screen_hint=sign-up">Create customer account</a> <a class="button secondary" href="/auth/login">Sign in securely</a></p><p><a href="/payments">Compare payment options</a></p></section>',
+                intro='Your business request is private. No card details are needed.')
         with engine.connect() as c:
             records=c.execute(select(requests).where(requests.c.subject==row['subject'])
                 .order_by(requests.c.created.desc()).limit(20)).mappings().all()
