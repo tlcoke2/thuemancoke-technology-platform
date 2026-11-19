@@ -1,0 +1,121 @@
+{
+  "format": "tec-passive-gateway-check/v1",
+  "checkedAtUtc": "2026-11-19T02:30:40.114130+00:00",
+  "origin": "https://customers.thuemancokelimited.com",
+  "checks": [
+    {
+      "path": "/health",
+      "method": "GET",
+      "http": 200,
+      "expected": 200,
+      "pass": true,
+      "issues": []
+    },
+    {
+      "path": "/ready",
+      "method": "GET",
+      "http": 200,
+      "expected": 200,
+      "pass": true,
+      "issues": []
+    },
+    {
+      "path": "/start",
+      "method": "GET",
+      "http": 200,
+      "expected": 200,
+      "pass": true,
+      "issues": []
+    },
+    {
+      "path": "/payments",
+      "method": "GET",
+      "http": 200,
+      "expected": 200,
+      "pass": true,
+      "issues": []
+    },
+    {
+      "path": "/help",
+      "method": "GET",
+      "http": 200,
+      "expected": 200,
+      "pass": true,
+      "issues": []
+    },
+    {
+      "path": "/help/customer-guide.txt",
+      "method": "GET",
+      "http": 200,
+      "expected": 200,
+      "pass": true,
+      "issues": []
+    },
+    {
+      "path": "/help/customer-guide.pdf",
+      "method": "GET",
+      "http": 200,
+      "expected": 200,
+      "pass": true,
+      "issues": []
+    },
+    {
+      "path": "/customer/billing",
+      "method": "GET",
+      "http": 401,
+      "expected": 401,
+      "pass": true,
+      "issues": []
+    },
+    {
+      "path": "/customer/requests/export",
+      "method": "GET",
+      "http": 401,
+      "expected": 401,
+      "pass": true,
+      "issues": []
+    },
+    {
+      "path": "/admin/software-requests",
+      "method": "GET",
+      "http": 401,
+      "expected": 401,
+      "pass": true,
+      "issues": []
+    },
+    {
+      "path": "/admin/billing",
+      "method": "GET",
+      "http": 401,
+      "expected": 401,
+      "pass": true,
+      "issues": []
+    },
+    {
+      "path": "/api/downloads",
+      "method": "POST",
+      "http": 401,
+      "expected": 401,
+      "pass": true,
+      "issues": []
+    }
+  ],
+  "pass": true,
+  "scope": "Passive public pages, security headers and unauthenticated denial only. Not a penetration test, authenticated UAT, archive readback or clinical assessment.",
+  "localTestsPassed": 279,
+  "ciRuns": [
+    44443983592,
+    44444543534
+  ],
+  "sourceCommits": [
+    "0b90b6def99b2a7bddf51c15ed23c68516cc8a03",
+    "d6d294150858f36e9c35304fdf16c1a06b50e300"
+  ],
+  "customerGuide": {
+    "pages": 6,
+    "readbackMatches": true,
+    "sha256": "dface91196d71b63ec362b8b9a1ec4020f2ec0cde41a54f133535c09bc709fa3"
+  },
+  "clinicalArchiveModified": false,
+  "stripeAccountModified": false
+}
