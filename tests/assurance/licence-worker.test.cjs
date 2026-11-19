@@ -30,3 +30,5 @@ test('local delivery retries cannot overwrite another file',t=>{const s=setup(t)
 test('invalid installation UUID denied',t=>{const s=setup(t);s.job.installationId='../file';assert.throws(()=>issue({...s.options,approvalBytes:s.signed()}),/identity/);});
 
 test('approval cannot be transferred to a different licence key',t=>{const s=setup(t);s.job.licencePublicKeySha256='0'.repeat(64);assert.throws(()=>issue({...s.options,approvalBytes:s.signed()}),/fingerprint/);});
+
+test('impossible calendar dates denied',t=>{const s=setup(t);s.job.expiresAt='2027-02-30T12:00:00Z';assert.throws(()=>issue({...s.options,approvalBytes:s.signed()}),/calendar date/);});

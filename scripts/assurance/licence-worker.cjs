@@ -25,6 +25,7 @@ function parseEnvelope(bytes, approvalPublicPem, approvalPin) {
   if (!Array.isArray(job.modules) || !job.modules.length || job.modules.length > 25 || new Set(job.modules).size !== job.modules.length || job.modules.some(x => x !== '*' && !MODULES.has(x)) || (job.modules.includes('*') && job.modules.length !== 1)) throw new Error('Invalid approved modules');
   for (const field of ['approvedAt','approvalExpiresAt','expiresAt']) {
     if (typeof job[field] !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(job[field]) || !Number.isFinite(Date.parse(job[field]))) throw new Error('Explicit UTC dates required');
+    if (new Date(job[field]).toISOString().replace(/\.000Z$/, 'Z') !== job[field].replace(/\.000Z$/, 'Z')) throw new Error('Invalid calendar date');
   }
   if (!/^[a-f0-9]{64}$/.test(job.licencePublicKeySha256 || '')) throw new Error('Approved licence key fingerprint required');
   const start = Date.parse(job.approvedAt), end = Date.parse(job.approvalExpiresAt);
