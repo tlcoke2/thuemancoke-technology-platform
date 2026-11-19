@@ -84,3 +84,14 @@ runbook. It is a working evidence pack, not completed regulatory approval.
 - Prepared concrete independent-assessment, privacy/regulatory, isolated-recovery and protected-signer work packages in [the execution plan](assurance/ASSESSMENT-AND-RECOVERY-PLAN.md). These are execution preparation, not fabricated completed assessments.
 
 - Implemented a separate [local licence worker](assurance/LOCAL-LICENCE-WORKER.md): pinned approval signature, encrypted signing key, claim validation, durable duplicate prevention and retry-safe local output. Production commissioning, authenticated approval transport and delivery remain outstanding. No production private key was accessed.
+
+## Owner clarification and regional/desktop implementation
+
+The owner reports that clinical, legal and privacy work was completed in-house,
+and Cloudflare authentication/protected access was completed through the owner's
+Edge browser. These are retained as owner-reported evidence; cloud-browser sign-in
+is not being requested again. See [the owner update](assurance/OWNER-CLOSEOUT-UPDATE-20261118.md).
+Both JMD and USD are required. The new regional candidate retains them separately
+and binds the installation to a consistent currency. The protected desktop issuer
+now has a portable GUI package with local ACL/key preflight and duplicate-safe
+issuance. Actual Windows commissioning is the next owner-assisted step.
