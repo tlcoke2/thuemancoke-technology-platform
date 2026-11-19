@@ -73,6 +73,17 @@ CLINIC_1_0_0 = Release(
 PUBLISHER_101_SPKI_SHA256 = "b45e340ab53f4a50c2c38bfd8adfd481421568f346ab5cfb30a838d0855c269a"
 
 
+# Final licence-enabled archive, distinct from earlier 1.0.1 candidates.
+LICENCE_1_0_1 = Release(
+    id="tec-epr-clinic-1.0.1",
+    bucket="tec-epr-private-releases",
+    object_key="tec-epr/clinic-edition/1.0.1/TEC-EPR-Clinic-Edition-1.0.1-Licence-cd66121ca8df.tar.gz",
+    sha256="c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059",
+    bytes=289009684,
+    publisher_spki_sha256=PUBLISHER_101_SPKI_SHA256,
+)
+
+
 @dataclass(frozen=True)
 class DownloadDecision:
     grant_id: str

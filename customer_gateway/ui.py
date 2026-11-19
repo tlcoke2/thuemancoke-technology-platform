@@ -29,7 +29,7 @@ def page(title, body, *, eyebrow="SECURE CUSTOMER PORTAL", intro="", notice=None
         '<span class="brand-text"><strong>Thueman Coke Limited</strong>'
         '<small>Customer gateway</small></span></a>'
         '<div class="links"><a href="/">Home</a><a href="/account">My account</a>'
-        '<a href="/customer">Customer access</a></div></nav></header>'
+        '<a href="/customer">Customer access</a><a href="/help">Installation help</a></div></nav></header>'
         '<main class="main" id="content"><div class="hero"><div class="eyebrow">'
         + safe_eyebrow + '</div><h1>' + safe_title + '</h1>'
         + ('<p class="lede">' + safe_intro + '</p>' if intro else '')
