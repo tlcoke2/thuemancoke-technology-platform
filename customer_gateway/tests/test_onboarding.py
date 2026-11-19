@@ -162,7 +162,7 @@ class OnboardingUITests(unittest.TestCase):
         self.assertEqual(response.status_code,403)
         self.assertIn("This action was not performed",response.text)
         self.assertIn("second tab",response.text)
-        self.assertEqual(response.headers["cache-control"],"no-store")
+        self.assertEqual(response.headers["cache-control"],"no-store, no-transform")
         with self.engine.connect() as c:
             self.assertEqual(c.scalar(select(func.count()).select_from(requests)),0)
 

@@ -115,7 +115,7 @@ class IntakeTests(unittest.TestCase):
         self.assertEqual(r.status_code,200)
         self.assertNotIn('foreign-secret',r.text)
         self.assertEqual(len(r.json()['requests']),1)
-        self.assertEqual(r.headers['cache-control'],'no-store')
+        self.assertEqual(r.headers['cache-control'],'no-store, no-transform')
         self.assertIn('attachment',r.headers['content-disposition'])
         self.assertEqual(self.client.get('/customer/requests/export?after=invalid').status_code,400)
 

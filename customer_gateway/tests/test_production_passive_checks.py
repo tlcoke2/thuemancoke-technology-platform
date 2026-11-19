@@ -8,10 +8,10 @@ checker=importlib.util.module_from_spec(spec);spec.loader.exec_module(checker)
 class PassiveCheckTests(unittest.TestCase):
     def response(self,url,method):
         expected=next(s for path,m,s in checker.CHECKS if url==checker.BASE+path and method==m)
-        headers={'cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY',
+        headers={'cache-control':'no-store, no-transform','x-content-type-options':'nosniff','x-frame-options':'DENY',
                  'content-security-policy':"default-src 'none'; frame-ancestors 'none'",'strict-transport-security':'max-age=31536000',
                  'content-disposition':'attachment; filename="guide.txt"'}
-        body='Request a payment link c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059'
+        body='mailto:tlcoke@hotmail.com Request a payment link c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059'
         return expected,headers,body
     def test_success_means_only_documented_passive_scope(self):
         report=checker.inspect(self.response)

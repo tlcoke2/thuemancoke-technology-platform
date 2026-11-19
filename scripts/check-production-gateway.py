@@ -1,5 +1,6 @@
 """Passive checks of fixed, owner-authorised production endpoints. No sign-in or mutation."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -14,15 +15,17 @@ CHECKS=(('/health','GET',200),('/ready','GET',200),('/start','GET',200),
 
 def inspect(fetch):
     checks=[]
-    for path,method,expected in CHECKS:
-        code,headers,body=fetch(BASE+path,method)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        responses=list(pool.map(lambda check: fetch(BASE+check[0],check[1]),CHECKS))
+    for (path,method,expected),(code,headers,body) in zip(CHECKS,responses):
         reasons=[]
         if code!=expected:reasons.append('Unexpected HTTP status')
-        for key,value in [('cache-control','no-store'),('x-content-type-options','nosniff'),('x-frame-options','DENY')]:
+        for key,value in [('cache-control','no-store'),('cache-control','no-transform'),('x-content-type-options','nosniff'),('x-frame-options','DENY')]:
             if value.lower() not in headers.get(key,'').lower():reasons.append('Missing '+key)
         csp=headers.get('content-security-policy','')
         if "frame-ancestors 'none'" not in csp or "default-src 'none'" not in csp:reasons.append('Missing restrictive CSP')
         if 'max-age=' not in headers.get('strict-transport-security',''):reasons.append('Missing HSTS')
+        if code==200 and path=='/help' and 'mailto:tlcoke@hotmail.com' not in body:reasons.append('Support email rewritten or missing')
         if code==200 and path=='/help' and 'c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059' not in body:reasons.append('Wrong help release')
         if code==200 and path=='/help/customer-guide.txt' and 'attachment;' not in headers.get('content-disposition',''):reasons.append('Guide not downloadable')
         if code==200 and path=='/payments' and 'Request a payment link' not in body:reasons.append('Missing payment request route')
