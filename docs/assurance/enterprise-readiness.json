@@ -78,9 +78,12 @@
     },
     {
       "id": "clinical-safety-case",
-      "status": "open",
-      "evidence": [],
-      "scope": "Named qualified clinical safety officer, hazard log review, clinical safety case and intended-use approval"
+      "status": "owner_reported",
+      "evidence": [
+        "docs/assurance/OWNER-CLOSEOUT-UPDATE-20261118.md",
+        "Owner reports clinical, legal and privacy work completed in-house"
+      ],
+      "scope": "Named qualified clinical safety officer, hazard log review, clinical safety case and intended-use approval; underlying in-house documents and exact approval scope have not been independently examined here."
     },
     {
       "id": "medical-device-assessment",
@@ -96,9 +99,12 @@
     },
     {
       "id": "privacy-governance",
-      "status": "owner_review",
-      "evidence": [],
-      "scope": "Controller/processor roles, lawful bases, Article 9 condition, DPIA, DPA, retention, rights, transfers and breach procedure"
+      "status": "owner_reported",
+      "evidence": [
+        "docs/assurance/OWNER-CLOSEOUT-UPDATE-20261118.md",
+        "Owner reports clinical, legal and privacy work completed in-house"
+      ],
+      "scope": "Controller/processor roles, lawful bases, Article 9 condition, DPIA, DPA, retention, rights, transfers and breach procedure; underlying in-house documents and exact approval scope have not been independently examined here."
     },
     {
       "id": "host-encryption-recovery",
@@ -115,8 +121,10 @@
     {
       "id": "edge-bot-protection",
       "status": "deployment_review",
-      "evidence": [],
-      "scope": "Verify Cloudflare WAF, bot/rate rules, TLS and alert routing using actual account access"
+      "evidence": [
+        "Owner confirms Cloudflare authentication/protected access and assisted verification through laptop Edge browser"
+      ],
+      "scope": "Verify Cloudflare WAF, bot/rate rules, TLS and alert routing using actual account access; continue with owner-assisted Edge readback rather than repeated cloud-browser login."
     },
     {
       "id": "stripe-tax-setup",
@@ -139,24 +147,32 @@
     },
     {
       "id": "automatic-licence-fulfilment",
-      "status": "open",
-      "evidence": [],
-      "scope": "Protected separate signer and issuance ledger; no private key in gateway or customer package"
+      "status": "deployment_review",
+      "evidence": [
+        "scripts/assurance/licence-worker.cjs",
+        "docs/assurance/LOCAL-LICENCE-WORKER.md",
+        "Owner reports protected Windows desktop issuer successfully issued a licence"
+      ],
+      "scope": "Protected local worker core and desktop issuance/ledger implemented and tested; owner-reported Windows issuance succeeded. Authenticated unattended approval transport and customer delivery still require commissioning."
     },
     {
       "id": "customer-legal-terms",
-      "status": "owner_review",
-      "evidence": [],
-      "scope": "Approved EULA, subscription/support terms, trial restrictions, refund terms and perpetual licence scope"
+      "status": "owner_reported",
+      "evidence": [
+        "docs/assurance/OWNER-CLOSEOUT-UPDATE-20261118.md",
+        "Owner reports clinical, legal and privacy work completed in-house"
+      ],
+      "scope": "Approved EULA, subscription/support terms, trial restrictions, refund terms and perpetual licence scope; underlying in-house documents and exact approval scope have not been independently examined here."
     },
     {
       "id": "full-module-manual",
-      "status": "open",
+      "status": "owner_review",
       "evidence": [
         "customer_gateway/customer_help.py",
-        "docs/TEC-EPR-1.0.1-INSTALLATION-QUICK-GUIDE.md"
+        "docs/TEC-EPR-1.0.1-INSTALLATION-QUICK-GUIDE.md",
+        "docs/TEC-EPR-CLINICAL-MODULE-MANUAL.md"
       ],
-      "scope": "Installation/activation/support help completed; full illustrated role/module training still needs exact released UI validation."
+      "scope": "Source-verified module manual and installation help completed; installed-screen illustrations and clinical workflow acceptance remain site-specific."
     },
     {
       "id": "customer-installation-help",
@@ -174,6 +190,15 @@
         "scripts/check-production-gateway.py"
       ],
       "scope": "Repeatable fixed-endpoint headers and unauthenticated access checks. Live result must be recorded separately; not an independent penetration test."
+    },
+    {
+      "id": "regional-clinical-pricing",
+      "status": "deployment_review",
+      "evidence": [
+        "https://github.com/tlcoke2/tec_epr_backend/pull/84",
+        "https://github.com/tlcoke2/tec_epr_frontend/pull/6"
+      ],
+      "scope": "JMD/Jamaica and separate USD/US-Europe pricing implemented in candidate source. Focused, clinical database and image gates passed; combined-installer verification awaits usable private frontend Actions credential. Current signed archive unchanged."
     }
   ]
 }

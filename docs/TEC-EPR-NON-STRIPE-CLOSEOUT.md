@@ -95,3 +95,19 @@ Both JMD and USD are required. The new regional candidate retains them separatel
 and binds the installation to a consistent currency. The protected desktop issuer
 now has a portable GUI package with local ACL/key preflight and duplicate-safe
 issuance. Actual Windows commissioning is the next owner-assisted step.
+
+## Resumed GitHub verification after budget update
+
+The budget blocker is resolved. Hosted regional/signer and Windows syntax tests,
+clinical PostgreSQL/HTTP isolation, Windows/Linux packaging and evaluation-image
+security gates passed. Backend and frontend evaluation image reports each contain
+zero Critical/High findings. The owner also reports successful Windows desktop
+licence issuance. Full evidence and source/image identities are preserved in the
+private backend evidence branch `evidence/regional-pricing-ci-resume`.
+
+The remaining combined-installer gate is the existing private frontend read
+credential `TEC_RC5_FRONTEND_READ_TOKEN`: six jobs now fail explicitly at a bounded
+credential check. Refresh its frontend Contents-read access inside GitHub; never
+send it through chat. The workflows pin the exact regional frontend revision.
+No combined-installer pass or new signed commercial archive is inferred from
+separate image/source tests. The retained original archive and volumes are unchanged.
