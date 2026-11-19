@@ -37,6 +37,28 @@ class IntakeTests(unittest.TestCase):
         self.assertEqual(self.submit(intent='admin').status_code,400)
         self.client.cookies.clear()
         self.assertEqual(self.submit().status_code,401)
+    def test_payment_link_requests_preselect_plan_and_do_not_create_grants(self):
+        from customer_gateway.customer_intake import INTENTS
+        for index, intent in enumerate(('paylink_essentials','paylink_professional','paylink_enterprise')):
+            self.assertLessEqual(len(intent),24)
+            page=self.client.get('/customer/requests?intent='+intent)
+            self.assertIn('value="'+intent+'" selected',page.text)
+            self.assertEqual(self.submit(request_id=f'{index:032x}',intent=intent).status_code,303)
+        with self.engine.connect() as c:
+            self.assertEqual(c.scalar(select(func.count()).select_from(requests)),3)
+            self.assertEqual(c.scalar(select(func.count()).select_from(grants)),0)
+        self.assertNotIn('<script>unsafe</script>',self.client.get('/customer/requests?intent=<script>unsafe</script>').text)
+
+    def test_guest_payment_link_request_shows_registration_without_private_data(self):
+        self.submit(organisation='PRIVATE ORGANISATION')
+        self.client.cookies.clear()
+        r=self.client.get('/customer/requests?intent=paylink_professional')
+        self.assertEqual(r.status_code,200)
+        self.assertIn('Payment link — Professional',r.text)
+        self.assertIn('Create customer account',r.text)
+        self.assertNotIn('PRIVATE ORGANISATION',r.text)
+        self.assertEqual(self.submit(intent='paylink_professional').status_code,401)
+
     def test_daily_limit(self):
         for i in range(5): self.assertEqual(self.submit(request_id=f'{i:032x}').status_code,303)
         self.assertEqual(self.submit(request_id='b'*32).status_code,429)

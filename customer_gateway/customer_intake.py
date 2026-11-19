@@ -22,7 +22,10 @@ requests = Table('gateway_self_service_requests', metadata,
     Column('state', String(24), nullable=False),
     Column('created', Integer, nullable=False))
 INTENTS = {'demo':'Demo licence request', 'subscription':'Subscription enquiry',
-           'outright':'Outright purchase quotation', 'licence':'Installation licence request'}
+           'outright':'Outright purchase quotation', 'licence':'Installation licence request',
+           'paylink_essentials':'Payment link — Clinic Essentials',
+           'paylink_professional':'Payment link — Professional',
+           'paylink_enterprise':'Payment link — Enterprise'}
 TRANSITIONS = {
     'received': ('reviewing', 'rejected', 'closed'),
     'reviewing': ('awaiting_customer', 'rejected', 'closed'),
@@ -45,25 +48,36 @@ def register(app, config, engine, current, protected_form, sessions, clock, acce
             '<li>Create and verify your account.</li><li>Select your software request and organisation.</li>'
             '<li>Review your request status and any agreed commercial terms.</li>'
             '<li>Download your approved release, install it and obtain an installation-bound licence.</li></ol>'
-            '<p><a class="button secondary" href="/customer/requests">Choose demo, subscription or outright purchase</a></p>'
+            '<p><a class="button" href="/payments">Payment options and payment-link requests</a> <a class="button secondary" href="/customer/requests">Choose demo or private quotation</a></p>'
             '<p>Private requests require review. An account or payment alone does not authorise clinical use or issue a licence. '
             'Do not submit patient records, passwords or private signing keys.</p></section>',
             eyebrow='TEC EPR CUSTOMER CENTRE', intro='One secure account for software requests, approved downloads and licence enquiries.')
 
     @app.get('/customer/requests', response_class=HTMLResponse)
     def request_page(request: Request):
-        row=current(request)
+        selected=request.query_params.get('intent','demo')
+        if selected not in INTENTS: selected='demo'
+        try:
+            row=current(request)
+        except HTTPException as error:
+            if error.status_code != 401: raise
+            return page('Sign in to submit your request',
+                '<section class="card"><h2>'+esc(INTENTS[selected])+'</h2><p>Create your verified customer account or sign in to submit and track this request. After sign-in, open My software requests and select '+esc(INTENTS[selected])+'.</p>'
+                '<p><a class="button" href="/auth/login?screen_hint=sign-up">Create customer account</a> <a class="button secondary" href="/auth/login">Sign in securely</a></p><p><a href="/payments">Compare payment options</a></p></section>',
+                intro='Your business request is private. No card details are needed.')
         with engine.connect() as c:
             records=c.execute(select(requests).where(requests.c.subject==row['subject'])
                 .order_by(requests.c.created.desc()).limit(20)).mappings().all()
-        choices=''.join('<option value="'+k+'">'+v+'</option>' for k,v in INTENTS.items())
+        selected=request.query_params.get('intent','demo')
+        if selected not in INTENTS: selected='demo'
+        choices=''.join('<option value="'+k+'"'+(' selected' if k==selected else '')+'>'+v+'</option>' for k,v in INTENTS.items())
         body='<section class="card"><h2>Tell us what you need</h2><p>Use business details only. Outright purchase pricing is provided by private quotation.</p>'
         body+='<form method="post" action="/customer/requests"><input type="hidden" name="csrf" value="'+esc(row['csrf'])+'">'
         body+='<input type="hidden" name="request_id" value="'+secrets.token_hex(16)+'">'
         body+='<label>Organisation<input name="organisation" maxlength="160" minlength="2" required autocomplete="organization"></label>'
         body+='<label>Country<input name="country" maxlength="80" minlength="2" required autocomplete="country-name"></label>'
         body+='<label>Request type<select name="intent">'+choices+'</select></label>'
-        body+='<p>Requests are recorded against your verified account. No patient information or installation files are required at this stage.</p>'
+        body+='<p>Requests are recorded against your verified account. Payment-link requests are reviewed with your organisation, chosen plan and applicable taxes before a link is issued. Track the request here. Do not submit card numbers, security codes or bank credentials.</p>'
         body+='<button>Submit private request</button></form></section><section class="card"><h2>Your requests</h2>'
         if not records: body+='<p>You have no requests yet.</p>'
         for r in records:

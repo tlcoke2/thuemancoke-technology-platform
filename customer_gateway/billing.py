@@ -89,7 +89,7 @@ class StripeBilling:
 
     def check_account(self):
         account = self.client.v1.accounts.retrieve_current()
-        if account.id != self.cfg.account:
+        if account.id != self.cfg.account or (self.cfg.live and not account.charges_enabled):
             raise ValueError('Stripe account mismatch')
 
     def create(self, order, plan, origin):
@@ -253,26 +253,45 @@ def register(app, config, engine, current, protected_form, clock, access, cfg=No
     ledger = Ledger(engine, cfg, provider, clock, access)
     esc = lambda v: html.escape(str(v), quote=True)
 
+    def plan_cards(row=None):
+        body = '<div class="grid">'
+        for code, p in plans.items():
+            request_intent = 'paylink_' + ('essentials' if code == 'clinic_essentials' else code)
+            body += '<section class="card"><span class="kicker">TEC EPR CLINIC EDITION</span><h2>' + esc(p['name']) + '</h2>'
+            body += '<p><strong>JMD ' + format(p['monthlyMinor']/100, ',.2f') + '</strong> per month, plus applicable tax.</p>'
+            body += '<p>Implementation: ' + ('from ' if p.get('startingPrice') else '') + 'JMD ' + format(p['implementationMinor']/100, ',.2f') + ', separately agreed. '
+            body += ('All modules; larger deployments require a private quotation.' if code == 'enterprise' else 'Modules, support and implementation scope are confirmed in your order.') + '</p>'
+            if cfg.enabled and row:
+                body += '<form method="post" action="/customer/billing/checkout"><input type="hidden" name="csrf" value="' + esc(row['csrf']) + '"><input type="hidden" name="order_id" value="' + secrets.token_hex(16) + '"><input type="hidden" name="plan" value="' + code + '"><label><input type="checkbox" name="terms" value="accepted" required> I accept the agreed software order, separate implementation costs and monthly recurring billing.</label><button>Enter payment details securely</button></form>'
+            elif cfg.enabled:
+                body += '<p><a class="button" href="/customer/billing">Sign in for secure checkout</a></p>'
+            else:
+                body += '<p class="notice">Card checkout is not available yet. Payment-link requests are open.</p>'
+            body += '<p><a class="button secondary" href="/customer/requests?intent=' + request_intent + '">Request a payment link</a></p></section>'
+        return body + '</div>'
+
+    @app.get('/payments', response_class=HTMLResponse)
+    def payment_options():
+        return page('Choose how you would like to pay',
+            '<section class="card"><h2>Secure checkout or a private payment link</h2><p>Choose your subscription below. Sign in or register to request a payment link for your organisation. Payment details are entered only on Stripe’s secure payment page when checkout is available.</p><p><a class="button" href="/auth/login?screen_hint=sign-up">Create customer account</a> <a class="button secondary" href="/customer/billing">Sign in / my billing</a></p></section>'
+            + plan_cards() + '<section class="card"><h2>Demo or outright purchase?</h2><p>Request a demo licence, outright purchase quotation or a larger Enterprise deployment through your verified customer account.</p><a class="button secondary" href="/customer/requests?intent=outright">Request a private quotation</a><p>Payment alone does not approve clinical use or issue an installation licence. Never enter card details, patient information or private keys in a request.</p></section>',
+            eyebrow='TCL CUSTOMER PAYMENTS', intro='Clear pricing, secure payment and requests tracked in your customer account.')
+
     @app.get('/customer/billing', response_class=HTMLResponse)
     def billing_page(request: Request):
         row = current(request)
-        body = '<section class="card"><h2>Subscriptions and licences</h2>'
-        body += '<p>Prices are in Jamaican dollars before applicable tax. Implementation is priced separately under an agreed order. Outright purchases and larger Enterprise deployments require a quotation.</p>'
-        if not cfg.enabled:
-            body += '<p>Online payment is being validated. You can submit a private request now.</p>'
-        else:
-            for code, p in plans.items():
-                body += '<h3>' + esc(p['name']) + '</h3><p>JMD ' + format(p['monthlyMinor']/100, ',.2f') + ' per month, plus applicable tax.</p>'
-                body += '<form method="post" action="/customer/billing/checkout"><input type="hidden" name="csrf" value="' + esc(row['csrf']) + '"><input type="hidden" name="order_id" value="' + secrets.token_hex(16) + '"><input type="hidden" name="plan" value="' + code + '"><label><input type="checkbox" name="terms" value="accepted" required> I accept the agreed software order, separate implementation costs and monthly recurring billing. Payment does not replace clinical approval or installation licensing.</label><button>Continue to secure checkout</button></form>'
+        body = '<section class="card"><h2>Your payment options</h2><p>Prices are in Jamaican dollars before applicable tax. Implementation is priced separately under an agreed order. Outright purchases and larger Enterprise deployments require a quotation. Payment does not replace clinical approval or installation licensing.</p></section>' + plan_cards(row)
+        if cfg.enabled:
             with engine.connect() as c:
                 records = c.execute(select(orders).where(orders.c.subject == row['subject']).order_by(orders.c.created.desc()).limit(20)).mappings().all()
-            body += '<h2>Your billing status</h2>'
+            body += '<section class="card"><h2>Your billing status</h2>'
             for r in records:
                 body += '<p>' + esc(plans[r['plan']]['name']) + ' — ' + esc(r['state'].replace('_', ' ')) + '<br>Order: ' + esc(r['id']) + '</p>'
             if any(r['customer_id'] for r in records):
                 body += '<form method="post" action="/customer/billing/portal"><input type="hidden" name="csrf" value="' + esc(row['csrf']) + '"><button>Manage subscription or payment method</button></form>'
-        body += '<p><a href="/customer/requests">Demo, licence or private purchase request</a> · <a href="/customer">Approved downloads</a></p></section>'
-        return page('My subscriptions', body, intro='Secure payment, order tracking and a separate installation-bound licence.')
+            body += '</section>'
+        body += '<section class="card"><p><a href="/customer/requests">My payment-link and software requests</a> · <a href="/customer">Approved downloads</a></p></section>'
+        return page('My subscriptions and payments', body, intro='Secure payment, order tracking and a separate installation-bound licence.')
 
     @app.post('/customer/billing/checkout')
     async def checkout(request: Request):

@@ -81,6 +81,23 @@ class BillingTests(IntakeTests):
         timestamp=timestamp or int(time.time())
         mac=hmac.new(b'whsec_synthetic', str(timestamp).encode()+b'.'+raw, hashlib.sha256).hexdigest()
         return self.billing.post('/api/webhooks/stripe',content=raw,headers={'stripe-signature':signature or f't={timestamp},v1={mac}'})
+    def test_public_payment_options_and_authenticated_link_requests(self):
+        self.billing.cookies.clear()
+        r=self.billing.get('/payments')
+        self.assertEqual(r.status_code,200)
+        for plan in ('Clinic Essentials','Professional','Enterprise'):
+            self.assertIn(plan,r.text)
+        self.assertIn('Request a payment link',r.text)
+        self.assertNotIn('name="card',r.text)
+        self.assertEqual(self.billing.get('/customer/billing').status_code,401)
+
+    def test_disabled_billing_still_shows_payment_request_gui(self):
+        r=self.client.get('/payments')
+        self.assertEqual(r.status_code,200)
+        self.assertIn('Card checkout is not available yet',r.text)
+        self.assertIn('paylink_professional',r.text)
+        self.assertNotIn('action="/customer/billing/checkout"',r.text)
+
     def test_checkout_auth_csrf_unknown_plan_and_price_injection(self):
         self.assertEqual(self.checkout(csrf='wrong').status_code,403)
         self.assertEqual(self.checkout(plan='price_attacker').status_code,400)
@@ -192,6 +209,17 @@ class BillingConfigurationTests(unittest.TestCase):
         self.assertEqual(adapter.risk_subscriptions({'payment_intent':'pi_one'}),['sub_one','sub_two'])
         args=adapter.client.v1.invoice_payments.list.call_args.args[0]
         self.assertEqual(args['payment'],{'type':'payment_intent','payment_intent':'pi_one'})
+    def test_live_checkout_requires_charges_enabled_on_selected_account(self):
+        adapter=object.__new__(StripeBilling); adapter.client=MagicMock()
+        adapter.cfg=BillingConfig(live=True,account='acct_selected')
+        account=adapter.client.v1.accounts.retrieve_current.return_value
+        account.id='acct_selected';account.charges_enabled=False
+        with self.assertRaises(ValueError):adapter.check_account()
+        account.charges_enabled=True
+        adapter.check_account()
+        account.id='acct_other'
+        with self.assertRaises(ValueError):adapter.check_account()
+
     def test_sdk_checkout_has_tax_idempotency_dynamic_methods_and_fixed_return(self):
         adapter=object.__new__(StripeBilling);adapter.client=MagicMock();adapter.cfg=BillingConfig(live=False)
         adapter.check_account=MagicMock()
