@@ -1,4 +1,5 @@
 """Version-specific customer guidance. No credentials or clinical records are served."""
+from pathlib import Path
 from fastapi.responses import HTMLResponse, Response
 try:
     from .ui import page
@@ -105,7 +106,7 @@ def register(app):
     @app.get('/help', response_class=HTMLResponse)
     def help_page():
         return page('Install, activate and get support',
-            '<section class="card panel-gradient"><h2>Your customer guide</h2><p>For the signed TEC EPR Clinic Edition 1.0.1 fresh Windows installation. Keep a copy with your installation records.</p><a class="button" href="/help/customer-guide.txt">Download installation and activation guide</a></section>'
+            '<section class="card panel-gradient"><h2>Your customer guide</h2><p>For the signed TEC EPR Clinic Edition 1.0.1 fresh Windows installation. Keep a copy with your installation records.</p><a class="button" href="/help/customer-guide.pdf">Download PDF installation guide</a> <a class="button secondary" href="/help/customer-guide.txt">Plain-text guide</a></section>'
             '<div class="grid"><section class="card"><h2>1. Register and download</h2><p>Create your account, verify your email and request the software you need. Once approved, download the archive and its publisher signature from Customer access.</p><a href="/start">Register / sign in</a> · <a href="/customer/requests">My software requests</a> · <a href="/customer">Approved downloads</a></section>'
             '<section class="card"><h2>2. Verify and install</h2><p>Check the archive checksum and independently verify the publisher signature. Prepare Windows 11, Node.js 22+ and Docker Desktop with Linux containers. Extract to a new folder and double-click <strong>Install.cmd</strong>. Follow its wizard and keep the displayed local URL.</p><p>The licence verification public key is included. Customers never need TEC’s private key.</p></section>'
             '<section class="card"><h2>3. Request your licence</h2><p>Sign in locally using your setup administrator and initial password. Open <strong>Subscription</strong> and choose <strong>Download licence request</strong>. Submit an Installation licence request in the portal, then supply the JSON through your agreed support channel.</p><p>The current portal records requests; it does not upload the installation JSON or generate licences automatically.</p><a href="/customer/requests?intent=licence">Request an installation licence</a></section>'
@@ -118,3 +119,9 @@ def register(app):
     def customer_guide():
         return Response(GUIDE, media_type='text/plain; charset=utf-8', headers={
             'Content-Disposition':'attachment; filename="TEC-EPR-1.0.1-Customer-Guide.txt"'})
+
+    @app.get('/help/customer-guide.pdf')
+    def customer_pdf():
+        return Response(Path(__file__).with_name('TEC-EPR-1.0.1-Customer-Guide.pdf').read_bytes(),
+            media_type='application/pdf', headers={
+                'Content-Disposition':'attachment; filename="TEC-EPR-1.0.1-Customer-Guide.pdf"'})

@@ -7,7 +7,7 @@ patient record is changed by this review.
 
 ## Completed in this review
 
-- Added `/help` and a downloadable plain-text customer guide inside the portal.
+- Added `/help` and a downloadable six-page PDF and plain-text customer guide inside the portal.
   The guide is tied to the published licence-enabled archive and verified source
   labels: Install.cmd, Subscription, Download licence request, Licence file,
   Verify and install. Help is linked from every gateway page and the account.

@@ -17,6 +17,13 @@ class CustomerHelpTests(unittest.TestCase):
         self.assertIn('does not upload',r.text)
         self.assertIn('never need TEC’s private key',r.text)
         self.assertNotIn('<form',r.text)
+    def test_pdf_is_a_download_with_fixed_filename(self):
+        r=self.client.get('/help/customer-guide.pdf')
+        self.assertEqual(r.status_code,200)
+        self.assertEqual(r.headers['content-type'],'application/pdf')
+        self.assertTrue(r.content.startswith(b'%PDF-'))
+        self.assertIn('attachment;',r.headers['content-disposition'])
+
     def test_download_is_plain_text_with_fixed_filename_and_safe_scope(self):
         r=self.client.get('/help/customer-guide.txt')
         self.assertEqual(r.status_code,200)

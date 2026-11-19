@@ -15,7 +15,7 @@ class PassiveCheckTests(unittest.TestCase):
         return expected,headers,body
     def test_success_means_only_documented_passive_scope(self):
         report=checker.inspect(self.response)
-        self.assertTrue(report['pass']);self.assertEqual(len(report['checks']),11)
+        self.assertTrue(report['pass']);self.assertEqual(len(report['checks']),12)
         self.assertIn('Not a penetration test',report['scope'])
     def test_http_success_on_a_private_route_is_a_failure(self):
         def fetch(url,method):

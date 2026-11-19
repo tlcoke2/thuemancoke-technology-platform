@@ -8,7 +8,7 @@ import subprocess
 BASE='https://customers.thuemancokelimited.com'
 CHECKS=(('/health','GET',200),('/ready','GET',200),('/start','GET',200),
         ('/payments','GET',200),('/help','GET',200),('/help/customer-guide.txt','GET',200),
-        ('/customer/billing','GET',401),('/customer/requests/export','GET',401),
+        ('/help/customer-guide.pdf','GET',200),('/customer/billing','GET',401),('/customer/requests/export','GET',401),
         ('/admin/software-requests','GET',401),('/admin/billing','GET',401),
         ('/api/downloads','POST',401))
 
