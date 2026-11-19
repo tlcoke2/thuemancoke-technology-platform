@@ -196,9 +196,10 @@
       "status": "deployment_review",
       "evidence": [
         "https://github.com/tlcoke2/tec_epr_backend/pull/84",
-        "https://github.com/tlcoke2/tec_epr_frontend/pull/6"
+        "https://github.com/tlcoke2/tec_epr_frontend/pull/6",
+        "docs/assurance/REGIONAL-INSTALLER-CI-CLOSEOUT.md"
       ],
-      "scope": "JMD/Jamaica and separate USD/US-Europe pricing implemented in candidate source. Focused, clinical database and image gates passed; combined-installer verification awaits usable private frontend Actions credential. Current signed archive unchanged."
+      "scope": "Jamaica/JMD, US/USD and UK-Europe/USD pricing merged into installation source. All 23 backend workflow runs, actual packaged bootstrap/recovery/lab PDF and three-image Critical/High scan gates passed. Independent Windows acceptance and signing of a separately assembled regional distribution remain. Current signed archive unchanged."
     }
   ]
 }

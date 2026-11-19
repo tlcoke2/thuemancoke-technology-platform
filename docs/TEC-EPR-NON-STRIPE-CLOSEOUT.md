@@ -94,7 +94,7 @@ is not being requested again. See [the owner update](assurance/OWNER-CLOSEOUT-UP
 Both JMD and USD are required. The new regional candidate retains them separately
 and binds the installation to a consistent currency. The protected desktop issuer
 now has a portable GUI package with local ACL/key preflight and duplicate-safe
-issuance. Actual Windows commissioning is the next owner-assisted step.
+issuance. The owner reports successful Windows licence issuance; unattended transport and delivery commissioning remain separate.
 
 ## Resumed GitHub verification after budget update
 
@@ -105,9 +105,23 @@ zero Critical/High findings. The owner also reports successful Windows desktop
 licence issuance. Full evidence and source/image identities are preserved in the
 private backend evidence branch `evidence/regional-pricing-ci-resume`.
 
-The remaining combined-installer gate is the existing private frontend read
-credential `TEC_RC5_FRONTEND_READ_TOKEN`: six jobs now fail explicitly at a bounded
-credential check. Refresh its frontend Contents-read access inside GitHub; never
-send it through chat. The workflows pin the exact regional frontend revision.
-No combined-installer pass or new signed commercial archive is inferred from
-separate image/source tests. The retained original archive and volumes are unchanged.
+Private frontend credential access is now verified. All 23 backend workflow runs
+at `01973ff22846c4a41a5a7072bcc1e3613701679f` passed, including actual
+packaged bootstrap/licence HTTP acceptance, lab PDF parsing, database-plus-upload
+restore, bounded capacity/restart resilience and a local offline image replay.
+Actual packaged backend, frontend and PostgreSQL scan reports each have zero
+Critical/High findings. This is synthetic CI evidence, not independent Windows
+clean-computer acceptance or a new signed commercial archive.
+
+Backend PR #84 and frontend PR #6 are merged into their installation source branches.
+Verified binary scan evidence is retained privately at backend evidence commit
+`5076a1600d8e826d759c01d799cf56774a853bdc`.
+The live gateway passive check also passed all 12 fixed endpoint/header/anonymous
+denial checks. See [the engineering closeout](assurance/REGIONAL-INSTALLER-CI-CLOSEOUT.md).
+
+Next release work is a separately assembled regional distribution, exact-byte scans
+and Windows clean-computer acceptance, then local publisher signing and private R2
+readback before changing the portal's pinned release. The retained original signed
+archive, customer licences and production volumes remain unchanged. Authenticated
+unattended licence approval transport/customer delivery and independent assessment
+remain tracked separately.
