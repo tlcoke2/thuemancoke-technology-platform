@@ -60,6 +60,7 @@ function Navbar() {
   const [open, setOpen] = useState(false);
   const links = [
     ["Services", "#services"],
+    ["Our work", "#showcase"],
     ["Enterprise Software", "./software.html"],
     ["Customer portal", "https://customers.thuemancokelimited.com/start"],
     ["Expertise", "#expertise"],
@@ -142,6 +143,47 @@ function Credibility() {
           <span>New York University in London</span><span>Hotels</span><span>Charities & Schools</span>
         </div>
         <small>Organisation names describe prior professional experience and do not imply current endorsement or partnership.</small>
+      </div>
+    </section>
+  );
+}
+
+function Showcase() {
+  return (
+    <section className="section showcase-section" id="showcase" aria-labelledby="showcase-title">
+      <div className="container">
+        <div className="section-heading">
+          <div><span className="kicker">Built by Thueman Coke Limited</span><h2 id="showcase-title">Software that works.<br />Websites that connect.</h2></div>
+          <p>We design and build business software, websites and customer portals. Watch our short showcase, then explore two of our live website examples.</p>
+        </div>
+        <figure className="showcase-film">
+          <video controls playsInline preload="none" width="1280" height="720"
+            poster="./media/showcase/tcl-build-showcase-poster.webp" aria-label="Thueman Coke Limited software and website showcase"
+            aria-describedby="showcase-caption">
+            <source src="./media/showcase/tcl-build-showcase.mp4" type="video/mp4" />
+            <track kind="captions" src="./media/showcase/tcl-build-showcase.vtt" srcLang="en" label="English" />
+            Your browser does not support video. <a href="./media/showcase/tcl-build-showcase.mp4">Download the showcase</a> or read the transcript below.
+          </video>
+          <figcaption id="showcase-caption">34-second silent film with on-screen text. AI-assisted motion graphics illustrate our build process; website views show public project examples.</figcaption>
+        </figure>
+        <div className="showcase-projects">
+          <article className="showcase-project">
+            <a href="https://healthyconceptmedical.com/" target="_blank" rel="noopener noreferrer" aria-label="Visit Healthy Concept Medical Centre website, opens in a new tab">
+              <img src="./media/showcase/healthy-website.webp" alt="Healthy Concept Medical Centre website with a green and cream layout and appointment enquiry links" width="960" height="606" loading="lazy" decoding="async" />
+              <div><span className="kicker">Healthcare website</span><h3>Healthy Concept Medical Centre</h3><p>Clear service information, a community health hub and a simple route to appointment enquiries.</p><span className="showcase-link">Explore the live website <ArrowRight size={18} /></span></div>
+            </a>
+          </article>
+          <article className="showcase-project">
+            <a href="https://www.gordoncolegal.com/" target="_blank" rel="noopener noreferrer" aria-label="Visit Gordon and Co Legal Services website, opens in a new tab">
+              <img src="./media/showcase/gordon-website.webp" alt="Gordon and Co Legal Services website with a navy and cream layout and family law service information" width="960" height="606" loading="lazy" decoding="async" />
+              <div><span className="kicker">Professional services website</span><h3>Gordon &amp; Co Legal Services</h3><p>A professional digital presence with clear practice areas, useful resources and straightforward contact options.</p><span className="showcase-link">Explore the live website <ArrowRight size={18} /></span></div>
+            </a>
+          </article>
+        </div>
+        <details className="showcase-transcript"><summary>Read the video transcript</summary>
+          <p>Thueman Coke Limited turns ideas into working technology: software, websites and connected business systems. Our illustrated process moves through discovery, design, build and verification. TEC EPR connects clinic workflows with installation and licensing. Our website examples include Healthy Concept Medical Centre and Gordon &amp; Co Legal Services. We build custom software, websites and client portals for businesses across the UK, Europe, USA and Caribbean. Start your project at www.thuemancokelimited.com.</p>
+        </details>
+        <div className="showcase-actions"><a className="btn" href="#contact">Let’s build your website or software <ArrowRight size={18} /></a><a className="showcase-software" href="./software.html">Explore TEC EPR <ArrowRight size={18} /></a></div>
       </div>
     </section>
   );
@@ -439,6 +481,7 @@ export default function App() {
       <main>
         <Hero />
         <Credibility />
+        <Showcase />
         <Services />
         <Expertise />
         <About />

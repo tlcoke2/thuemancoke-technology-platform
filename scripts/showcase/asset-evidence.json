@@ -1,0 +1,32 @@
+{
+  "format": "tcl-showcase-assets/v1",
+  "durationSeconds": 34,
+  "audio": false,
+  "fastStart": true,
+  "sourceSites": [
+    "https://healthyconceptmedical.com/",
+    "https://www.gordoncolegal.com/"
+  ],
+  "assets": {
+    "gordon-website.webp": {
+      "bytes": 29546,
+      "sha256": "89b3d2a57a41f64f055bbbab1d5bd30f17b172fa795122b8a14c406fb6892705"
+    },
+    "tcl-build-showcase-poster.webp": {
+      "bytes": 34806,
+      "sha256": "954f443b9d06f44df7e0c7e4cb2787971c1863f80c77f77a51c367e2177d821d"
+    },
+    "tcl-build-showcase.vtt": {
+      "bytes": 669,
+      "sha256": "5e31e496813374e67201a22a151cac7353c167741bc9fabad98a73ad7174595f"
+    },
+    "tcl-build-showcase.mp4": {
+      "bytes": 624000,
+      "sha256": "1035f5b6cb9e8a71634dbe107e414241391e93902c8001f478c8aac090ef9b15"
+    },
+    "healthy-website.webp": {
+      "bytes": 29436,
+      "sha256": "2d4111481ebf0e5308e6a655d5516f33b456dabffae550ec5058741afe3953a3"
+    }
+  }
+}
