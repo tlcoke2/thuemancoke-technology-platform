@@ -612,7 +612,8 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         # URL appears only in this authenticated no-store HTML response; never
         # persist it, add it to analytics, or place it in logs.
         signature_form = ''
-        if decision.release.sha256 == 'c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059':
+        if decision.release.sha256 in ('c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059',
+                                       '0636d7a399f85e0cbd9a77175d11bf735df1f3b82f89825954c7575da8f26951'):
             signature_form = ('<form method="post" action="/api/downloads">'
                 '<input type="hidden" name="csrf" value="' + html.escape(row['csrf'], quote=True) + '">'
                 '<input type="hidden" name="grant_id" value="' + html.escape(grant_id, quote=True) + '">'

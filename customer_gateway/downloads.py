@@ -12,6 +12,11 @@ except ImportError:
 
 R2_ENDPOINT='https://d0ad5986fca56c661b92988f2ea1c1f7.r2.cloudflarestorage.com'
 EXPECTED_ETAG='fdb7dffbf9039a6e85a3bd30802b77dd'
+SIGNATURE_HASHES = {
+    'c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059': '27410465d8e3e78d945abc6dbfae2cee74a77b1b6b92a47d1ab5ebe61b607c48',
+    '0636d7a399f85e0cbd9a77175d11bf735df1f3b82f89825954c7575da8f26951': 'ebbe87da6dbde8898b1df16e8702615300a812cd5c4a013d9a72b9a99151872c',
+}
+
 
 
 class R2Signer:
@@ -41,7 +46,7 @@ class R2Signer:
         # still requires full SHA-256 and the independently authenticated publisher key.
 
     def sign_signature(self, decision):
-        if decision.release != self.release or self.release.sha256 != 'c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059' or not 1 <= decision.ttl_seconds <= 300:
+        if decision.release != self.release or self.release.sha256 not in SIGNATURE_HASHES or not 1 <= decision.ttl_seconds <= 300:
             raise ValueError('Unsupported signature request')
         key = self.release.object_key + '.publisher.sig'
         obj = self.client.get_object(Bucket=self.release.bucket, Key=key)
@@ -50,7 +55,7 @@ class R2Signer:
             signature = body.read(513)
         finally:
             body.close()
-        if obj.get('ContentLength') != 512 or len(signature) != 512 or hashlib.sha256(signature).hexdigest() != '27410465d8e3e78d945abc6dbfae2cee74a77b1b6b92a47d1ab5ebe61b607c48':
+        if obj.get('ContentLength') != 512 or len(signature) != 512 or hashlib.sha256(signature).hexdigest() != SIGNATURE_HASHES[self.release.sha256]:
             raise ValueError('Detached signature changed')
         url = self.client.generate_presigned_url('get_object', Params={
             'Bucket': self.release.bucket, 'Key': key, 'ResponseCacheControl': 'no-store',
