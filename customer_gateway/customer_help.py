@@ -1,5 +1,6 @@
 """Version-specific customer guidance. No credentials or clinical records are served."""
 from pathlib import Path
+import os
 from fastapi.responses import HTMLResponse, Response
 try:
     from .ui import page
@@ -8,6 +9,13 @@ except ImportError:
 
 ARCHIVE = 'TEC-EPR-Clinic-Edition-1.0.1-Licence-cd66121ca8df.tar.gz'
 SHA256 = 'c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059'
+REGIONAL = os.environ.get('GATEWAY_101_BUILD') == 'regional-a55a2b114a35'
+ARCHIVE_BYTES = 266757194 if REGIONAL else 289009684
+if REGIONAL:
+    ARCHIVE = 'TEC-EPR-Clinic-Edition-1.0.1-Regional-a55a2b114a35.tar.gz'
+    SHA256 = '0636d7a399f85e0cbd9a77175d11bf735df1f3b82f89825954c7575da8f26951'
+REGIONAL_GUIDANCE = 'Confirm Jamaica/JMD or US and UK-Europe/USD pricing during setup; these are separate schedules, not currency conversion. ' if REGIONAL else ''
+PDF_NAME = 'TEC-EPR-1.0.1-Regional-Customer-Guide.pdf' if REGIONAL else 'TEC-EPR-1.0.1-Customer-Guide.pdf'
 LICENCE_SPKI = 'feba748a1b088c114f0e63e49d28b6203ca7d28c0b72e75aace3511379342f26'
 PUBLISHER_SPKI = 'b45e340ab53f4a50c2c38bfd8adfd481421568f346ab5cfb30a838d0855c269a'
 
@@ -22,7 +30,7 @@ upgrade procedure, full clinical training manual or regulatory certificate.
 2. After access approval, obtain the release archive and detached publisher
    signature from Customer access. Archive: {ARCHIVE}
    Expected archive SHA-256: {SHA256}
-   Expected size: 289009684 bytes. Verify the SHA-256 and publisher signature before
+   Expected size: {ARCHIVE_BYTES} bytes. Verify the SHA-256 and publisher signature before
    extraction, using an independently authenticated publisher public key.
    Publisher SPKI SHA-256: {PUBLISHER_SPKI}
    A matching checksum alone does not authenticate the publisher. If you cannot
@@ -35,7 +43,7 @@ upgrade procedure, full clinical training manual or regulatory certificate.
    country, timezone, facility, administrator and local port details when asked.
    Keep the folder and the local URL printed by the installer. This is not a
    repair or upgrade command for an existing installation.
-5. The approved package includes tec-licence-verification.pem. It creates the
+5. {REGIONAL_GUIDANCE}The approved package includes tec-licence-verification.pem. It creates the
    local public.pem verification material itself. Do not supply a private key or
    borrow a public key from another build. Unexpected key prompts mean you must
    stop and confirm the package identity. Licence SPKI SHA-256: {LICENCE_SPKI}
@@ -111,7 +119,7 @@ def register(app):
             '<section class="card"><h2>2. Verify and install</h2><p>Check the archive checksum and independently verify the publisher signature. Prepare Windows 11, Node.js 22+ and Docker Desktop with Linux containers. Extract to a new folder and double-click <strong>Install.cmd</strong>. Follow its wizard and keep the displayed local URL.</p><p>The licence verification public key is included. Customers never need TEC’s private key.</p></section>'
             '<section class="card"><h2>3. Request your licence</h2><p>Sign in locally using your setup administrator and initial password. Open <strong>Subscription</strong> and choose <strong>Download licence request</strong>. Submit an Installation licence request in the portal, then supply the JSON through your agreed support channel.</p><p>The current portal records requests; it does not upload the installation JSON or generate licences automatically.</p><a href="/customer/requests?intent=licence">Request an installation licence</a></section>'
             '<section class="card"><h2>4. Apply and validate</h2><p>When TEC returns your signed <strong>.teclicense</strong>, select it under <strong>Licence file</strong> in Subscription and choose <strong>Verify and install</strong>. Check customer, Installation ID, expiry and modules. Use synthetic data for validation before clinical approval.</p></section></div>'
-            '<section class="card"><h2>Verify the exact release</h2><p>Archive: <code>' + ARCHIVE + '</code></p><p>Size: 289009684 bytes. Expected SHA-256:</p><code class="code">' + SHA256 + '</code><p>A checksum verifies bytes; it does not replace independent publisher-signature verification. The publisher identity and licence identity are different. Full fingerprints are in the downloadable guide.</p></section>'
+            '<section class="card"><h2>Verify the exact release</h2><p>Archive: <code>' + ARCHIVE + '</code></p><p>Size: ' + str(ARCHIVE_BYTES) + ' bytes. Expected SHA-256:</p><code class="code">' + SHA256 + '</code><p>A checksum verifies bytes; it does not replace independent publisher-signature verification. The publisher identity and licence identity are different. Full fingerprints are in the downloadable guide.</p></section>'
             '<section class="card"><h2>Support, renewal and recovery</h2><p>Contact <a href="mailto:tlcoke@hotmail.com">tlcoke@hotmail.com</a> with your request ID, Installation ID and non-sensitive error text. Request renewal before expiry and maintain a tested downtime/backup plan. Never delete volumes or reset clinical data as a repair.</p><p>Do not send patient records, passwords, private signing keys or payment-card details.</p><a href="/customer/requests">Track requests</a> · <a href="/payments">Payment options</a> · <a href="/account">Account and authenticator</a></section>',
             eyebrow='TEC EPR CUSTOMER HELP', intro='A clear path from approved download to your own licensed installation.')
 
@@ -122,6 +130,6 @@ def register(app):
 
     @app.get('/help/customer-guide.pdf')
     def customer_pdf():
-        return Response(Path(__file__).with_name('TEC-EPR-1.0.1-Customer-Guide.pdf').read_bytes(),
+        return Response(Path(__file__).with_name(PDF_NAME).read_bytes(),
             media_type='application/pdf', headers={
                 'Content-Disposition':'attachment; filename="TEC-EPR-1.0.1-Customer-Guide.pdf"'})

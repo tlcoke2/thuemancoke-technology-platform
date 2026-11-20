@@ -1,0 +1,12 @@
+{
+  "format": "tec-regional-release-rollback/v1",
+  "scope": "Non-secret release variables only. Restore these together, retain historical GATEWAY_LICENCE_ARCHIVE_VERIFICATION_JSON unchanged, then redeploy. Regional report may remain unused.",
+  "variables": {
+    "GATEWAY_101_BUILD": "licence-cd66121ca8df",
+    "GATEWAY_R2_101_EXPECTED_ETAG": "1a3216a09a3ee675fbe07c8ca18020f8",
+    "GATEWAY_R2_101_READBACK_SHA256": "c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059",
+    "GATEWAY_LICENCE_SIGNATURE_READBACK_SHA256": "27410465d8e3e78d945abc6dbfae2cee74a77b1b6b92a47d1ab5ebe61b607c48",
+    "GATEWAY_LICENCE_FINAL_UAT_REF": "Owner installation and licence acceptance 2026-11-17 installation 038eb67d-7845-483c-bb84-21b5058bc22e",
+    "GATEWAY_LICENCE_SECURITY_REVIEW_REF": "Alpine CVE-2026-107891 branch fix review and PostgreSQL restore PASS 2026-11-17"
+  }
+}

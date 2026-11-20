@@ -7,7 +7,10 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 import fitz
 
-out=Path('customer_gateway/TEC-EPR-1.0.1-Customer-Guide.pdf')
+import sys
+regional = '--regional' in sys.argv
+out=Path('customer_gateway/TEC-EPR-1.0.1-Regional-Customer-Guide.pdf' if regional else 'customer_gateway/TEC-EPR-1.0.1-Customer-Guide.pdf')
+Path('tmp/pdfs').mkdir(parents=True,exist_ok=True)
 navy=colors.HexColor('#0b1834');teal=colors.HexColor('#087f82');muted=colors.HexColor('#526478')
 styles=getSampleStyleSheet()
 styles.add(ParagraphStyle(name='TitleTEC',fontName='Helvetica-Bold',fontSize=30,leading=35,textColor=navy,spaceAfter=20))
@@ -29,7 +32,7 @@ def footer(c,doc):
  c.drawRightString(w-48,30,str(doc.page))
 section(1,'Your installation guide')
 para('From approved download to a licensed customer installation.','SubTEC')
-para('Prepared 18 November 2026. For the signed, licence-enabled fresh Windows installation. Keep this guide with your installation records.')
+para('Prepared 19 November 2026. For the signed, licence-enabled fresh Windows installation. Keep this guide with your installation records.')
 para('Start here','HeadingTEC')
 para('<link href="https://customers.thuemancokelimited.com/help" color="#087f82">customers.thuemancokelimited.com/help</link><br/>Customer account: customers.thuemancokelimited.com/start<br/>Support: tlcoke@hotmail.com')
 step('Your four stages','Register and request access; verify and install; request and apply your installation licence; validate and prepare safe operation.')
@@ -41,7 +44,11 @@ step('1. Create your verified account','Open the customer account page, register
 step('2. Obtain your approved software','Customer access lists approved private downloads. Download the archive and detached publisher signature. Keep delivery links private; approval and link expiry are separate from licence activation.')
 step('3. Verify before extraction','Compare the archive SHA-256 and size below. Independently authenticate the publisher public key and verify the detached signature. A matching checksum alone does not authenticate the publisher. Contact support if signature verification is unavailable or fails.')
 para('Approved archive','HeadingTEC')
-story.append(Preformatted('TEC-EPR-Clinic-Edition-1.0.1-Licence-cd66121ca8df.tar.gz\nSize: 289009684 bytes\nSHA-256:\nc4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059',styles['CodeTEC']))
+archive_block='TEC-EPR-Clinic-Edition-1.0.1-Licence-cd66121ca8df.tar.gz\nSize: 289009684 bytes\nSHA-256:\nc4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059'
+if regional:
+ archive_block=archive_block.replace('Licence-cd66121ca8df','Regional-a55a2b114a35').replace('289009684','266757194').replace('c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059','0636d7a399f85e0cbd9a77175d11bf735df1f3b82f89825954c7575da8f26951')
+story.append(Preformatted(archive_block,styles['CodeTEC']))
+if regional: step('Regional pricing','Jamaica uses JMD; US and UK/Europe use USD with separate approved pricing schedules. Confirm the country and currency during setup. This is not an exchange-rate conversion.')
 step('4. Use a new installation folder','Start Docker. Extract into a NEW folder and double-click Install.cmd. Enter organisation, country, timezone, facility, administrator and local port details when asked. Keep the printed local URL and retain the installation folder. Do not install over a live system.')
 step('Unexpected key prompt or installer error','Stop and confirm you downloaded this exact licence-enabled package. It includes tec-licence-verification.pem and creates the local public.pem itself. Preserve the folder and error text; do not reset data or substitute an unrelated key.')
 section(3,'Activate your installation')
