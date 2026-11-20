@@ -11,9 +11,9 @@ import json
 from pathlib import Path
 
 try:
-    from .download_policy import CLINIC_1_0_0
+    from .download_policy import CLINIC_1_0_0, LICENCE_1_0_1
 except ImportError:
-    from download_policy import CLINIC_1_0_0
+    from download_policy import CLINIC_1_0_0, LICENCE_1_0_1
 
 
 CHUNK_BYTES = 1024 * 1024
@@ -52,12 +52,14 @@ def inspect_archive(path, *, release=None):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Verify an existing local TEC EPR Clinic Edition 1.0.0 download.')
+    parser = argparse.ArgumentParser(description='Verify pinned local TEC EPR download bytes; publisher signature requires separate verification.')
+    parser.add_argument('--release', choices=('1.0.0', '1.0.1-licence'), default='1.0.0',
+                        help='Select the exact archive; default retains historical 1.0.0 behaviour.')
     parser.add_argument('--file', required=True, type=Path, help='Path to the already-downloaded local archive, not a signed URL.')
     parser.add_argument('--evidence-json', type=Path, help='Optional NEW JSON evidence file (never overwrites an existing file).')
     args = parser.parse_args(argv)
     try:
-        evidence = inspect_archive(args.file)
+        evidence = inspect_archive(args.file, release=LICENCE_1_0_1 if args.release == '1.0.1-licence' else CLINIC_1_0_0)
     except (OSError, ValueError):
         print('FAIL: Cannot read a local archive. No network request or gateway modification made.')
         return 2

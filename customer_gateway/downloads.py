@@ -1,4 +1,5 @@
 """Private GET issuance. URL signing is disabled unless both release flags are explicit."""
+import hashlib
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 from sqlalchemy import select, func
@@ -11,6 +12,11 @@ except ImportError:
 
 R2_ENDPOINT='https://d0ad5986fca56c661b92988f2ea1c1f7.r2.cloudflarestorage.com'
 EXPECTED_ETAG='fdb7dffbf9039a6e85a3bd30802b77dd'
+SIGNATURE_HASHES = {
+    'c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059': '27410465d8e3e78d945abc6dbfae2cee74a77b1b6b92a47d1ab5ebe61b607c48',
+    '0636d7a399f85e0cbd9a77175d11bf735df1f3b82f89825954c7575da8f26951': 'ebbe87da6dbde8898b1df16e8702615300a812cd5c4a013d9a72b9a99151872c',
+}
+
 
 
 class R2Signer:
@@ -39,6 +45,27 @@ class R2Signer:
         # Size/ETag are change detection, not signature verification. Installer trust
         # still requires full SHA-256 and the independently authenticated publisher key.
 
+    def sign_signature(self, decision):
+        if decision.release != self.release or self.release.sha256 not in SIGNATURE_HASHES or not 1 <= decision.ttl_seconds <= 300:
+            raise ValueError('Unsupported signature request')
+        key = self.release.object_key + '.publisher.sig'
+        obj = self.client.get_object(Bucket=self.release.bucket, Key=key)
+        body = obj['Body']
+        try:
+            signature = body.read(513)
+        finally:
+            body.close()
+        if obj.get('ContentLength') != 512 or len(signature) != 512 or hashlib.sha256(signature).hexdigest() != SIGNATURE_HASHES[self.release.sha256]:
+            raise ValueError('Detached signature changed')
+        url = self.client.generate_presigned_url('get_object', Params={
+            'Bucket': self.release.bucket, 'Key': key, 'ResponseCacheControl': 'no-store',
+            'ResponseContentDisposition': 'attachment; filename="' + key.rsplit('/', 1)[1] + '"'},
+            ExpiresIn=decision.ttl_seconds, HttpMethod='GET')
+        parsed = urlsplit(url)
+        if parsed.scheme != 'https' or parsed.netloc != urlsplit(R2_ENDPOINT).netloc or parsed.path != '/' + self.release.bucket + '/' + key:
+            raise ValueError('Unexpected signature destination')
+        return url
+
     def sign(self, decision):
         release=decision.release
         if release!=self.release or not 1 <= decision.ttl_seconds <= 300:
@@ -62,7 +89,9 @@ class Downloads:
         self.enabled,self.release_approved=enabled,release_approved
         self.release=release
 
-    def issue(self, session_hash, grant_id):
+    def issue(self, session_hash, grant_id, artifact='archive'):
+        if artifact not in ('archive', 'signature'):
+            raise Denied('Unknown download artifact')
         if self.enabled is not True or self.release_approved is not True or not self.signer:
             raise Denied('Downloads are not enabled')
         with self.access.engine.begin() as c:
@@ -104,7 +133,7 @@ class Downloads:
             if count>=10: raise Denied('Download request limit reached; try again later')
             self.signer.check()
             allowed=decision()  # Recheck expiry after the bounded HEAD request.
-            url=self.signer.sign(allowed)
+            url=self.signer.sign_signature(allowed) if artifact == 'signature' else self.signer.sign(allowed)
             self.access._event(c,'download_link_issued',session['subject'],grant_id,int(self.access.clock()))
         # Do not return the bearer URL until the audit transaction has committed.
         return url,allowed

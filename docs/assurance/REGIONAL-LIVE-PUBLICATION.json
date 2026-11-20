@@ -1,0 +1,25 @@
+{
+  "format": "tec-regional-live-publication/v1",
+  "observedAtUtc": "2026-11-20T04:04:47.885Z",
+  "railwayDeploymentId": "bee1dc69-88f7-41a5-b0ee-2832738a6c67",
+  "gatewaySourceRevision": "09a1ed2f2c4942e5aa14d5d29971c297a073373b",
+  "build": "regional-a55a2b114a35",
+  "archiveFilename": "TEC-EPR-Clinic-Edition-1.0.1-Regional-a55a2b114a35.tar.gz",
+  "archiveBytes": 266757194,
+  "archiveSha256": "0636d7a399f85e0cbd9a77175d11bf735df1f3b82f89825954c7575da8f26951",
+  "signatureSha256": "ebbe87da6dbde8898b1df16e8702615300a812cd5c4a013d9a72b9a99151872c",
+  "etag": "2197cf9e1c005a2666c4ca9542cb7a8b",
+  "verification": {
+    "fullPrivateGetReadback": true,
+    "archiveSizeAndHashMatch": true,
+    "signatureSizeAndHashMatch": true,
+    "liveReleaseConfigPass": true,
+    "privateHeadPass": true,
+    "signatureDeliveryPass": true,
+    "signatureTrustBasis": "Exact readback hashes match owner signing evidence previously independently verified with OpenSSL; no new RSA verification or signing performed",
+    "originalArchiveRetained": true,
+    "customerAuthenticatedDownloadTestPerformed": false,
+    "latestArchiveWindowsIdentityIndependentlyVerified": false,
+    "manualAcceptanceClassification": "Owner-reported retrospective attestation; original form lost"
+  }
+}

@@ -209,7 +209,7 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(r.headers["location"], "/account")
         for path in ("/docs", "/openapi.json"):
             self.assertEqual(self.client.get(path).status_code, 404)
-        self.assertEqual(self.client.get("/").headers["cache-control"], "no-store")
+        self.assertEqual(self.client.get("/").headers["cache-control"], "no-store, no-transform")
 
 
 class WorkOSAdapterTests(unittest.TestCase):

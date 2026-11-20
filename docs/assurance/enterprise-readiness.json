@@ -1,0 +1,205 @@
+{
+  "format": "tec-enterprise-readiness/v1",
+  "reviewedOn": "2026-11-18",
+  "product": "TEC EPR Clinic Edition 1.0.1 and TCL commercial gateway",
+  "clinicalArchiveSha256": "c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059",
+  "scopeNote": "Engineering evidence inventory. Not a HIPAA/GDPR certificate, regulatory clearance or approval of clinical use.",
+  "controls": [
+    {
+      "id": "identity",
+      "status": "implemented",
+      "evidence": [
+        "customer_gateway/app.py",
+        "customer_gateway/tests/test_auth.py"
+      ],
+      "scope": "Verified email, PKCE and server-side short-lived sessions; gateway only"
+    },
+    {
+      "id": "privileged-mfa",
+      "status": "implemented",
+      "evidence": [
+        "customer_gateway/mfa.py",
+        "customer_gateway/tests/test_mfa.py"
+      ],
+      "scope": "Appointed gateway administrators require recent MFA"
+    },
+    {
+      "id": "tenant-isolation",
+      "status": "implemented",
+      "evidence": [
+        "customer_gateway/downloads.py",
+        "customer_gateway/tests/test_downloads.py"
+      ],
+      "scope": "Gateway grant/membership and cross-tenant download controls"
+    },
+    {
+      "id": "request-integrity",
+      "status": "implemented",
+      "evidence": [
+        "customer_gateway/customer_intake.py",
+        "customer_gateway/tests/test_customer_intake.py"
+      ],
+      "scope": "CSRF, exact origin, bounded inputs, duplicate protection, identity-wide quota"
+    },
+    {
+      "id": "request-review-audit",
+      "status": "implemented",
+      "evidence": [
+        "customer_gateway/customer_intake.py",
+        "customer_gateway/tests/test_customer_intake.py"
+      ],
+      "scope": "New request creation, export and status-change audit; transactional rollback; not immutable offsite audit storage"
+    },
+    {
+      "id": "commercial-data-export",
+      "status": "implemented",
+      "evidence": [
+        "customer_gateway/customer_intake.py",
+        "customer_gateway/tests/test_customer_intake.py"
+      ],
+      "scope": "Own commercial requests only; pagination; not a complete patient or WorkOS subject-access response"
+    },
+    {
+      "id": "signed-distribution",
+      "status": "implemented",
+      "evidence": [
+        "customer_gateway/release_101_config.py",
+        "customer_gateway/downloads.py"
+      ],
+      "scope": "Pinned archive identity and private expiring downloads; independently signed release retained"
+    },
+    {
+      "id": "clinical-install-acceptance",
+      "status": "owner_reported",
+      "evidence": [
+        "Owner-reported installation 038eb67d-7845-483c-bb84-21b5058bc22e and licence activation"
+      ],
+      "scope": "One installation; does not validate every clinical module"
+    },
+    {
+      "id": "clinical-safety-case",
+      "status": "owner_reported",
+      "evidence": [
+        "docs/assurance/OWNER-CLOSEOUT-UPDATE-20261118.md",
+        "Owner reports clinical, legal and privacy work completed in-house"
+      ],
+      "scope": "Named qualified clinical safety officer, hazard log review, clinical safety case and intended-use approval; underlying in-house documents and exact approval scope have not been independently examined here."
+    },
+    {
+      "id": "medical-device-assessment",
+      "status": "external_review",
+      "evidence": [],
+      "scope": "Function-by-function UK/EU/US and intended-market qualification/classification including AI and laboratory decision functions"
+    },
+    {
+      "id": "hipaa-risk-analysis",
+      "status": "owner_review",
+      "evidence": [],
+      "scope": "Deployment-specific complete ePHI data map, risk assessment, policies, workforce training and BAA applicability"
+    },
+    {
+      "id": "privacy-governance",
+      "status": "owner_reported",
+      "evidence": [
+        "docs/assurance/OWNER-CLOSEOUT-UPDATE-20261118.md",
+        "Owner reports clinical, legal and privacy work completed in-house"
+      ],
+      "scope": "Controller/processor roles, lawful bases, Article 9 condition, DPIA, DPA, retention, rights, transfers and breach procedure; underlying in-house documents and exact approval scope have not been independently examined here."
+    },
+    {
+      "id": "host-encryption-recovery",
+      "status": "deployment_review",
+      "evidence": [],
+      "scope": "Verify customer host encryption, backup encryption, restore, RPO/RTO and privileged support access per deployment"
+    },
+    {
+      "id": "independent-penetration-test",
+      "status": "external_review",
+      "evidence": [],
+      "scope": "Independent scoped security report and remediation retest; source tests are not a penetration test"
+    },
+    {
+      "id": "edge-bot-protection",
+      "status": "deployment_review",
+      "evidence": [
+        "Owner confirms Cloudflare authentication/protected access and assisted verification through laptop Edge browser"
+      ],
+      "scope": "Verify Cloudflare WAF, bot/rate rules, TLS and alert routing using actual account access; continue with owner-assisted Edge readback rather than repeated cloud-browser login."
+    },
+    {
+      "id": "stripe-tax-setup",
+      "status": "owner_review",
+      "evidence": [
+        "customer_gateway/commercial_catalog.json",
+        "docs/assurance/billing-deployment-20261117.json"
+      ],
+      "scope": "UK registration and standard-rated invoice preview recorded; existing selected Stripe account still has payments/payouts disabled, Jamaica GCT and service classification unresolved. Not tax/legal approval."
+    },
+    {
+      "id": "subscription-checkout",
+      "status": "implemented",
+      "evidence": [
+        "customer_gateway/billing.py",
+        "customer_gateway/tests/test_billing.py",
+        "docs/TEC-EPR-PAYMENT-OPTIONS.md"
+      ],
+      "scope": "Hosted checkout and signed/idempotent lifecycle/risk reconciliation implemented and tested; public payment-link REQUESTS deployed. Runtime credentials, sandbox acceptance, live link issuance and charge enablement remain open."
+    },
+    {
+      "id": "automatic-licence-fulfilment",
+      "status": "deployment_review",
+      "evidence": [
+        "scripts/assurance/licence-worker.cjs",
+        "docs/assurance/LOCAL-LICENCE-WORKER.md",
+        "Owner reports protected Windows desktop issuer successfully issued a licence"
+      ],
+      "scope": "Protected local worker core and desktop issuance/ledger implemented and tested; owner-reported Windows issuance succeeded. Authenticated unattended approval transport and customer delivery still require commissioning."
+    },
+    {
+      "id": "customer-legal-terms",
+      "status": "owner_reported",
+      "evidence": [
+        "docs/assurance/OWNER-CLOSEOUT-UPDATE-20261118.md",
+        "Owner reports clinical, legal and privacy work completed in-house"
+      ],
+      "scope": "Approved EULA, subscription/support terms, trial restrictions, refund terms and perpetual licence scope; underlying in-house documents and exact approval scope have not been independently examined here."
+    },
+    {
+      "id": "full-module-manual",
+      "status": "owner_review",
+      "evidence": [
+        "customer_gateway/customer_help.py",
+        "docs/TEC-EPR-1.0.1-INSTALLATION-QUICK-GUIDE.md",
+        "docs/TEC-EPR-CLINICAL-MODULE-MANUAL.md"
+      ],
+      "scope": "Source-verified module manual and installation help completed; installed-screen illustrations and clinical workflow acceptance remain site-specific."
+    },
+    {
+      "id": "customer-installation-help",
+      "status": "implemented",
+      "evidence": [
+        "customer_gateway/customer_help.py",
+        "customer_gateway/tests/test_customer_help.py"
+      ],
+      "scope": "Public portal help, downloadable version-specific guide, exact archive and separate signing fingerprints, verified installation/Subscription labels and safe recovery; no claim of complete clinical manual."
+    },
+    {
+      "id": "passive-production-checker",
+      "status": "implemented",
+      "evidence": [
+        "scripts/check-production-gateway.py"
+      ],
+      "scope": "Repeatable fixed-endpoint headers and unauthenticated access checks. Live result must be recorded separately; not an independent penetration test."
+    },
+    {
+      "id": "regional-clinical-pricing",
+      "status": "deployment_review",
+      "evidence": [
+        "https://github.com/tlcoke2/tec_epr_backend/pull/84",
+        "https://github.com/tlcoke2/tec_epr_frontend/pull/6",
+        "docs/assurance/REGIONAL-INSTALLER-CI-CLOSEOUT.md"
+      ],
+      "scope": "Jamaica/JMD, US/USD and UK-Europe/USD pricing merged into installation source. All 23 backend workflow runs, actual packaged bootstrap/recovery/lab PDF and three-image Critical/High scan gates passed. Independent Windows acceptance and signing of a separately assembled regional distribution remain. Current signed archive unchanged."
+    }
+  ]
+}

@@ -73,7 +73,7 @@ class MFATests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn('JBSWY3DPEHPK3PXP', r.text)
         self.assertIn('Confirm authenticator', r.text)
-        self.assertEqual(r.headers['cache-control'], 'no-store')
+        self.assertEqual(r.headers['cache-control'], 'no-store, no-transform')
         self.assertEqual(r.headers['referrer-policy'], 'same-origin')
         self.assertIn('img-src data:', r.headers['content-security-policy'])
         self.assertEqual(self.count(elevations), 0)

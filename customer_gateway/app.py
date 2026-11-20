@@ -175,13 +175,15 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         if request.url.hostname != urlsplit(config.origin).hostname and request.url.path != "/health":
             return HTMLResponse("Invalid host", status_code=400)
         response = await call_next(request)
-        # HTML form POSTs under no-referrer can send Origin: null. Only the
-        # account page needs same-origin; keep callback codes fully suppressed.
-        policy = "same-origin" if request.url.path in ("/account", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/customer") else "no-referrer"
-        response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": policy,
+        # HTML form POSTs under no-referrer can send Origin: null. Form pages
+        # need same-origin; callback codes and external destinations stay suppressed.
+        policy = "same-origin" if request.url.path in ("/account", "/customer/requests", "/customer/billing", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/admin/software-requests", "/customer", "/api/downloads") else "no-referrer"
+        response.headers.update({"Cache-Control": "no-store, no-transform", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-            "Strict-Transport-Security": "max-age=31536000"})
+            "Strict-Transport-Security": "max-age=31536000",
+            "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+            "Cross-Origin-Resource-Policy": "same-origin"})
         if request.url.path == "/auth/mfa/enroll":
             response.headers["Content-Security-Policy"] += "; img-src data:"
         return response
@@ -228,13 +230,13 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
     def home():
         sign_in = ('<a class="button" href="/auth/login">Sign in securely</a>' if config.enabled
                    else '<p class="notice warn">Sign-in is currently disabled.</p>')
-        release_status = ('Controlled staging downloads are enabled'
+        release_status = (('Controlled production downloads are enabled' if config.environment == 'production' else 'Controlled staging downloads are enabled')
                           if config.downloads_enabled and config.release_approved
                           else 'Private downloads require active, approved access')
         return view("Secure software. Clear customer access.",
             '<div class="grid"><section class="card panel-gradient">'
             '<span class="kicker">TCL SOFTWARE DELIVERY</span>'
-            '<h2>TEC EPR Clinic Edition 1.0.0</h2>'
+            '<h2>TEC EPR Clinic Edition ' + html.escape(config.release_id.rsplit('-', 1)[-1]) + '</h2>'
             '<p>Secure access to your software entitlement, private release download '
             'and verification information.</p><div class="actions">' + sign_in
             + '</div><p class="fine">Access is subject to identity verification and authorisation.</p>'
@@ -292,6 +294,8 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         params = dict(client_id=config.client_id, provider="authkit", response_type="code",
                       redirect_uri=config.origin+"/auth/callback", state=state,
                       code_challenge=challenge, code_challenge_method="S256")
+        if request.query_params.get("screen_hint") == "sign-up":
+            params["screen_hint"] = "sign-up"
         response = RedirectResponse("https://api.workos.com/user_management/authorize?"+urlencode(params), 303)
         cookie(response, FLOW_COOKIE, browser, 600)
         return response
@@ -400,6 +404,9 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             "<input type='hidden' name='csrf' value='" + html.escape(row["csrf"], quote=True) + "'>"
             '<button class="secondary">Sign out securely</button></form></div></section>'
         )
+        body += '<section class="card"><h2>Installation and licence help</h2><p>Follow the customer guide for installation, activation, renewal and safe recovery.</p><a class="button secondary" href="/help">Customer help centre</a></section>'
+        body += '<section class="card"><h2>Subscriptions and billing</h2><p>View your software subscription, secure checkout and payment status.</p><a class="button" href="/customer/billing">My subscriptions</a></section>'
+        body += '<section class="card"><h2>Demo, purchase and licence requests</h2><p>Submit and track your software request using your verified account.</p><a class="button" href="/customer/requests">My software requests</a></section>'
         return view("Welcome to your account", body,
             eyebrow="AUTHENTICATED CUSTOMER PORTAL",
             intro="Manage identity verification, check approved access and continue to secure downloads.")
@@ -412,7 +419,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         body = bytearray()
         async for chunk in request.stream():
             body.extend(chunk)
-            if len(body) > (2048 if request.url.path == "/admin/customers/propose" else 512):
+            if len(body) > (2048 if request.url.path in ("/admin/customers/propose", "/customer/requests") else 512):
                 raise HTTPException(413, "Form too large")
         from urllib.parse import parse_qs
         fields = parse_qs(body.decode("utf-8", errors="replace"))
@@ -500,7 +507,7 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             return HTMLResponse(message_page("Administrator verification required",
                 "An appointed administrator and recent authenticator verification are required.",
                 action="/account", action_label="Verify my account"), status_code=403)
-        content = '<section class="card"><p class="notice">A download grant does not issue a software licence.</p>'
+        content = '<section class="card"><p><a href="/admin/software-requests">Private software request inbox</a></p><p class="notice">A download grant does not issue a software licence.</p>'
         if config.onboarding_enabled:
             content += "<p><a href='/admin/customers'>Customer onboarding and review</a></p>"
         if not records:
@@ -594,22 +601,32 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         grant_id = fields.get('grant_id', [''])[0]
         if not grant_id or len(grant_id) > 64:
             raise HTTPException(400, "Invalid download request")
+        artifact = fields.get('artifact', ['archive'])[0]
+        billing_service.require_download_clear(row['subject'])
         try:
-            url, decision = download_service.issue(row['token_hash'], grant_id)
+            url, decision = download_service.issue(row['token_hash'], grant_id, artifact)
         except DownloadDenied as error:
             raise HTTPException(403, str(error)) from None
         except Exception:
             raise HTTPException(503, "Download issuance unavailable; no link released") from None
         # URL appears only in this authenticated no-store HTML response; never
         # persist it, add it to analytics, or place it in logs.
+        signature_form = ''
+        if decision.release.sha256 in ('c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059',
+                                       '0636d7a399f85e0cbd9a77175d11bf735df1f3b82f89825954c7575da8f26951'):
+            signature_form = ('<form method="post" action="/api/downloads">'
+                '<input type="hidden" name="csrf" value="' + html.escape(row['csrf'], quote=True) + '">'
+                '<input type="hidden" name="grant_id" value="' + html.escape(grant_id, quote=True) + '">'
+                '<input type="hidden" name="artifact" value="signature">'
+                '<button>Request publisher signature</button></form>')
         return view("Your private download is ready",
             '<div class="grid"><section class="card panel-gradient">'
             '<span class="stat">Approved private release</span>'
-            '<h2>TEC EPR Clinic Edition 1.0.0</h2>'
+            '<h2>TEC EPR Clinic Edition 1.0.1</h2>'
             '<p>Use this one-time delivery window to obtain your release archive. '
             'Keep the link private and do not forward it.</p>'
             '<div class="actions"><a class="button" rel="noreferrer noopener" href="'
-            + html.escape(url, quote=True) + '">Download release archive</a></div>'
+            + html.escape(url, quote=True) + '">' + ('Download publisher signature' if artifact == 'signature' else 'Download release archive') + '</a></div>'
             '<p class="fine">Link lifetime: ' + str(decision.ttl_seconds)
             + ' seconds. Already-issued links may remain valid until expiry after grant revocation.</p>'
             '</section><section class="card"><span class="kicker">VERIFY THE ARCHIVE</span>'
@@ -617,8 +634,8 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
             '<p>After downloading, verify the SHA-256 checksum and independently '
             'validate the publisher signature before installation.</p>'
             '<span class="kicker">EXPECTED SHA-256</span><code class="code">'
-            + decision.release.sha256 + '</code>'
-            '<div class="notice warn">Downloading software does not activate or issue a licence.</div>'
+            + decision.release.sha256 + '</code>' + signature_form
+            + '<div class="notice warn">Downloading software does not activate or issue a licence.</div>'
             '</section></div><section class="card"><div class="segment"><div>'
             '<h2>Need to review your access?</h2>'
             '<p class="muted">Return to your customer portal for your current '
@@ -637,6 +654,21 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         from appoint_admins import lookup_user
     onboarding_service = register(app, config, engine, entitlements, current, protected_form,
         identity_lookup or (lambda subject: lookup_user(config.api_key, subject)))
+    try:
+        from .customer_intake import register as register_intake
+    except ImportError:
+        from customer_intake import register as register_intake
+    register_intake(app, config, engine, current, protected_form, sessions, clock, entitlements)
+    try:
+        from .billing import register as register_billing
+    except ImportError:
+        from billing import register as register_billing
+    billing_service = register_billing(app, config, engine, current, protected_form, clock, entitlements)
+    try:
+        from .customer_help import register as register_help
+    except ImportError:
+        from customer_help import register as register_help
+    register_help(app)
     return app
 
 

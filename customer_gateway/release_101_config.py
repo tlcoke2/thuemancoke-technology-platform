@@ -53,6 +53,12 @@ def approved_release_101(environ):
         environ.get('GATEWAY_RELEASE_APPROVED')!='true' or
         environ.get('GATEWAY_RELEASE_ID')!='tec-epr-clinic-1.0.1'):
         raise ValueError('TEC EPR 1.0.1 private distribution is not authorised')
+    if environ.get('GATEWAY_101_BUILD') == 'regional-a55a2b114a35':
+        return _approved_regional_archive(environ)
+    if environ.get('GATEWAY_101_BUILD') == 'licence-cd66121ca8df':
+        return _approved_licence_archive(environ)
+    if environ.get('GATEWAY_101_BUILD', '') not in ('', 'fresh-66907861e79d'):
+        raise ValueError('Unknown TEC EPR 1.0.1 build')
     evidence=_read(environ.get('GATEWAY_SIGNED_101_RELEASE_EVIDENCE_JSON'))
     report=_read(environ.get('GATEWAY_VERIFIED_101_REPORT_JSON'))
     fname=evidence.get('archiveFilename')
@@ -114,3 +120,75 @@ def approved_release_101(environ):
     if obj.publisher_spki_sha256!=PUBLISHER_101_SPKI_SHA256:
         raise ValueError('Unexpected 1.0.1 publisher identity')
     return obj,etag
+def _approved_licence_archive(environ):
+    report = _read(environ.get('GATEWAY_LICENCE_ARCHIVE_VERIFICATION_JSON'))
+    expected = {
+        'format': 'tec-licence-detached-archive-verification-v1',
+        'archiveFilename': 'TEC-EPR-Clinic-Edition-1.0.1-Licence-cd66121ca8df.tar.gz',
+        'archiveBytes': 289009684,
+        'archiveSha256': 'c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059',
+        'detachedSignatureSha256': '27410465d8e3e78d945abc6dbfae2cee74a77b1b6b92a47d1ab5ebe61b607c48',
+        'publisherSpkiSha256': FINGERPRINT,
+        'candidateManifestSha256': 'cd66121ca8dfdbec30899be998cfb30d8ee13570e93cab967effcb9d83c3bf1b',
+        'source': {
+            'backendRevision': '630472009270c0097d5e86b6588b39edc3466e62',
+            'frontendRevision': '942c0833f30586c70e95b2a11b6d3b7d7eadab92',
+        },
+        'publisherSignatureVerified': True,
+        'packagedFileChecksumsVerified': True,
+        'cleanDistributionVerified': True,
+        'publicationStatus': 'AWAITING_GATEWAY_INTEGRATION_AND_PRIVATE_R2_READBACK',
+    }
+    for key, value in expected.items():
+        if type(report.get(key)) is not type(value) or report[key] != value:
+            raise ValueError('Final licence archive verification mismatch: ' + key)
+    assembly = report.get('offlineAssembly', {})
+    if not isinstance(assembly, dict) or assembly.get('imageIds') != {
+        'backend': 'sha256:49e8cf386eaa0a5dc3df2e7754f35f47d01f157ef38934319283ad7acf0c72dd',
+        'frontend': 'sha256:11a9b5d0f7af108b7a4030199bc5ff155b8f0b4222bcaecce451c1caacb35e30',
+        'database': 'sha256:915115491993564fc3f241fa977824e97482b60aac6411bacdbcd48df6b66300',
+    }:
+        raise ValueError('Final licence runtime identity mismatch')
+    etag = environ.get('GATEWAY_R2_101_EXPECTED_ETAG', '')
+    if not ETAG.fullmatch(etag) or environ.get('GATEWAY_R2_101_READBACK_SHA256') != expected['archiveSha256']:
+        raise ValueError('Final licence archive requires private R2 readback')
+    if environ.get('GATEWAY_LICENCE_SIGNATURE_READBACK_SHA256') != expected['detachedSignatureSha256']:
+        raise ValueError('Detached publisher signature requires private R2 readback')
+    for name in ('GATEWAY_OWNER_COMMERCIAL_APPROVAL_REF', 'GATEWAY_MEDICAL_RELEASE_APPROVAL_REF',
+                 'GATEWAY_LICENCE_FINAL_UAT_REF', 'GATEWAY_LICENCE_SECURITY_REVIEW_REF'):
+        value = environ.get(name, '')
+        if not isinstance(value, str) or not 12 <= len(value.strip()) <= 240 or value.strip().lower().startswith(
+                ('synthetic', 'test', 'pending', 'todo')):
+            raise ValueError('Missing final licence release evidence: ' + name)
+    return Release(id='tec-epr-clinic-1.0.1', bucket='tec-epr-private-releases',
+        object_key='tec-epr/clinic-edition/1.0.1/' + expected['archiveFilename'],
+        sha256=expected['archiveSha256'], bytes=expected['archiveBytes'],
+        publisher_spki_sha256=FINGERPRINT), etag
+
+
+
+REGIONAL_IDENTITY = {'archiveFilename': 'TEC-EPR-Clinic-Edition-1.0.1-Regional-a55a2b114a35.tar.gz', 'archiveSha256': '0636d7a399f85e0cbd9a77175d11bf735df1f3b82f89825954c7575da8f26951', 'archiveBytes': 266757194, 'signatureSha256': 'ebbe87da6dbde8898b1df16e8702615300a812cd5c4a013d9a72b9a99151872c', 'publisherSpkiSha256': 'b45e340ab53f4a50c2c38bfd8adfd481421568f346ab5cfb30a838d0855c269a'}
+
+
+def _approved_regional_archive(environ):
+    report = _read(environ.get('GATEWAY_REGIONAL_R2_READBACK_JSON'))
+    expected = dict(REGIONAL_IDENTITY, format='tec-regional-r2-readback/v1',
+                    publisherSignatureVerified=True, fullObjectReadback=True)
+    for key, value in expected.items():
+        if type(report.get(key)) is not type(value) or report[key] != value:
+            raise ValueError('Regional private readback mismatch: ' + key)
+    etag = environ.get('GATEWAY_R2_101_EXPECTED_ETAG', '')
+    if (not ETAG.fullmatch(etag) or report.get('etag') != etag or
+        environ.get('GATEWAY_R2_101_READBACK_SHA256') != REGIONAL_IDENTITY['archiveSha256'] or
+        environ.get('GATEWAY_LICENCE_SIGNATURE_READBACK_SHA256') != REGIONAL_IDENTITY['signatureSha256']):
+        raise ValueError('Regional private object identities do not match')
+    for name in ('GATEWAY_OWNER_COMMERCIAL_APPROVAL_REF', 'GATEWAY_MEDICAL_RELEASE_APPROVAL_REF',
+                 'GATEWAY_LICENCE_FINAL_UAT_REF', 'GATEWAY_LICENCE_SECURITY_REVIEW_REF'):
+        value = environ.get(name, '')
+        if not isinstance(value, str) or not 12 <= len(value.strip()) <= 240 or value.strip().lower().startswith(
+                ('synthetic', 'test', 'pending', 'todo')):
+            raise ValueError('Missing regional release evidence: ' + name)
+    return Release(id='tec-epr-clinic-1.0.1', bucket='tec-epr-private-releases',
+        object_key='tec-epr/clinic-edition/1.0.1/' + REGIONAL_IDENTITY['archiveFilename'],
+        sha256=REGIONAL_IDENTITY['archiveSha256'], bytes=REGIONAL_IDENTITY['archiveBytes'],
+        publisher_spki_sha256=FINGERPRINT), etag

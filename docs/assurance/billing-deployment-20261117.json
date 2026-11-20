@@ -1,0 +1,55 @@
+{
+  "format": "tec-billing-deployment-evidence/v1",
+  "date": "2026-11-17",
+  "implementationCommit": "779808466c5c7fb30fe0f5d324f83a87710ee4d8",
+  "mergedCommit": "deb9036e648597b5159f8cf0635af00f27a606a0",
+  "ciRun": 44197538707,
+  "ciJobs": {
+    "sqlite": "pass",
+    "postgres18": "pass",
+    "dependencyAudit": "pass",
+    "containerBuildAndImports": "pass"
+  },
+  "localTests": 263,
+  "productionDeployment": "d52f821e-d2d3-4c67-8b89-4caf394b346b",
+  "migration": {
+    "outcome": "PASS billing ledger added; existing gateway and clinical records preserved",
+    "observedVia": "Railway console",
+    "tables": [
+      "gateway_billing_orders",
+      "gateway_billing_events"
+    ]
+  },
+  "httpChecks": {
+    "/health": 200,
+    "/customer/billing": 401,
+    "/admin/billing": 401,
+    "POST /api/webhooks/stripe": 503
+  },
+  "billingEnabled": false,
+  "stripeAccount": {
+    "id": "acct_1TgB8dK17IwlxhlL",
+    "country": "US",
+    "businessType": "individual",
+    "chargesEnabled": false,
+    "payoutsEnabled": false,
+    "disabledReason": "requirements.past_due"
+  },
+  "taxUK": {
+    "registrationId": "taxreg_1UcvPlK17IwlxhlLXpxAAgtv",
+    "status": "active",
+    "previewId": "upcoming_in_1UcvQ7K17IwlxhlLsshKTwQm",
+    "taxabilityReason": "standard_rated",
+    "customerCharged": false
+  },
+  "notVerified": [
+    "Correct verified company Stripe account",
+    "Runtime restricted key and webhook secret",
+    "Isolated Stripe sandbox acceptance",
+    "Real signed Stripe delivery to production",
+    "Jamaica GCT and implementation service tax handling",
+    "Automated licence fulfilment"
+  ],
+  "clinicalDatabaseModified": false,
+  "certificationClaim": false
+}

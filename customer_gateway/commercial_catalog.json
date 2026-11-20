@@ -1,0 +1,125 @@
+{
+  "format": "tec-commercial-catalog/v1",
+  "status": "integration_deployed_payment_activation_blocked_by_stripe_verification",
+  "confirmedOn": "2026-11-17",
+  "seller": {
+    "legalName": "Thueman Coke Limited",
+    "registrationJurisdiction": "England and Wales",
+    "address": {
+      "line1": "32 Vivian Gardens",
+      "city": "Watford",
+      "postalCode": "WD19 4PG",
+      "country": "GB"
+    },
+    "source": "Owner confirmation; company/VAT registration numbers not supplied or independently verified"
+  },
+  "software": {
+    "name": "TEC EPR Clinic Edition",
+    "version": "1.0.1",
+    "delivery": "downloaded_business_software",
+    "stripeTaxCode": "txcd_10202003",
+    "stripeTaxCodeDescription": "Downloadable Software - business use",
+    "licenceIssuance": "separate_installation_bound_signing"
+  },
+  "serviceProvider": {
+    "legalName": "Healthy Concept Medical Centre",
+    "relationship": "Subsidiary as stated by owner",
+    "address": {
+      "line1": "58 Barnet Street",
+      "city": "Montego Bay",
+      "region": "St James",
+      "country": "JM"
+    },
+    "contractBoundary": "Provider, scope, tax and fees must be identified in the applicable service agreement; do not substitute this entity as software seller automatically"
+  },
+  "pricing": {
+    "currency": "jmd",
+    "taxBehavior": "exclusive",
+    "plans": [
+      {
+        "code": "clinic_essentials",
+        "name": "Clinic Essentials",
+        "implementationMinor": 17500000,
+        "monthlyMinor": 2500000,
+        "stripeProductId": "tec_epr_101_essentials",
+        "stripeMonthlyPriceId": "price_1UcvGKK17IwlxhlLbeqGL0ja",
+        "implementationStripePriceId": null
+      },
+      {
+        "code": "professional",
+        "name": "Professional",
+        "implementationMinor": 35000000,
+        "monthlyMinor": 5500000,
+        "stripeProductId": "tec_epr_101_professional",
+        "stripeMonthlyPriceId": "price_1UcvGcK17IwlxhlL2URNUEij",
+        "implementationStripePriceId": null
+      },
+      {
+        "code": "enterprise",
+        "name": "Enterprise",
+        "implementationMinor": 65000000,
+        "monthlyMinor": 11000000,
+        "startingPrice": true,
+        "largeDeployments": "private quotation",
+        "enquiryEmail": "tlcoke@hotmail.com",
+        "stripeProductId": "tec_epr_101_enterprise",
+        "stripeMonthlyPriceId": "price_1UcvGnK17IwlxhlLyVmEykFo",
+        "implementationStripePriceId": null
+      }
+    ],
+    "outright": "private quotation; no perpetual licence price inferred from implementation fees"
+  },
+  "activationRequirements": [
+    "Validate tax and checkout in an isolated sandbox",
+    "Verify signed idempotent payment webhooks",
+    "Protect separate licence signer and issuance ledger",
+    "Classify implementation services separately before creating their prices",
+    "Verify Stripe US account is correctly contracted for the UK legal seller",
+    "Confirm Jamaica GCT collection route and applicable implementation services tax classification",
+    "Configure runtime restricted key, webhook signing secret and isolated sandbox acceptance"
+  ],
+  "taxEvidence": {
+    "ownerStatesUKVATAndJamaicaGCTRegistered": true,
+    "registrationNumbers": "not supplied",
+    "stripeRegistrationsObserved": 1,
+    "headOfficeUpdate": "accepted_active_watford_GB",
+    "warning": "A general tax-paying company status does not itself prove VAT or GCT registration; no rates or registrations have been invented.",
+    "taxCollectionVerified": "UK example only; Jamaica unresolved",
+    "ukRegistrationId": "taxreg_1UcvPlK17IwlxhlLXpxAAgtv",
+    "ukRegistrationStatus": "active",
+    "ukInvoicePreview": {
+      "id": "upcoming_in_1UcvQ7K17IwlxhlLsshKTwQm",
+      "country": "GB",
+      "taxabilityReason": "standard_rated",
+      "currency": "jmd",
+      "subtotalMinor": 2500000,
+      "taxMinor": 500000,
+      "totalMinor": 3000000,
+      "charged": false
+    },
+    "stripeAccountCountryObserved": "US",
+    "sellerAccountCountryAlignment": "requires owner/account verification",
+    "jamaica": "Not present in Stripe Tax supported country list or registration options; no GCT rate invented"
+  },
+  "stripe": {
+    "account": "acct_1TgB8dK17IwlxhlL",
+    "livemode": true,
+    "verifiedOn": "2026-11-17",
+    "checkoutActivated": false,
+    "portalConfiguration": "bpc_1UcvXqK17IwlxhlLkoQVKzvg",
+    "portalFeatures": [
+      "invoice_history",
+      "payment_method_update",
+      "cancel_at_period_end"
+    ],
+    "accountVerification": {
+      "country": "US",
+      "businessType": "individual",
+      "chargesEnabled": false,
+      "payoutsEnabled": false,
+      "disabledReason": "requirements.past_due",
+      "companyNamePresent": false,
+      "requiredVerification": "Individual address, identification and document fields remain due; owner must connect the correct verified company account"
+    }
+  }
+}
