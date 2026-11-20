@@ -13,7 +13,7 @@ CHECKS=(('/health','GET',200),('/ready','GET',200),('/start','GET',200),
         ('/admin/software-requests','GET',401),('/admin/billing','GET',401),
         ('/api/downloads','POST',401))
 
-def inspect(fetch):
+def inspect(fetch, expected_sha='c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059'):
     checks=[]
     with ThreadPoolExecutor(max_workers=3) as pool:
         responses=list(pool.map(lambda check: fetch(BASE+check[0],check[1]),CHECKS))
@@ -26,7 +26,7 @@ def inspect(fetch):
         if "frame-ancestors 'none'" not in csp or "default-src 'none'" not in csp:reasons.append('Missing restrictive CSP')
         if 'max-age=' not in headers.get('strict-transport-security',''):reasons.append('Missing HSTS')
         if code==200 and path=='/help' and 'mailto:tlcoke@hotmail.com' not in body:reasons.append('Support email rewritten or missing')
-        if code==200 and path=='/help' and 'c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059' not in body:reasons.append('Wrong help release')
+        if code==200 and path=='/help' and expected_sha not in body:reasons.append('Wrong help release')
         if code==200 and path=='/help/customer-guide.txt' and 'attachment;' not in headers.get('content-disposition',''):reasons.append('Guide not downloadable')
         if code==200 and path=='/payments' and 'Request a payment link' not in body:reasons.append('Missing payment request route')
         checks.append({'path':path,'method':method,'http':code,'expected':expected,'pass':not reasons,'issues':reasons})
@@ -55,9 +55,10 @@ def fetch(url,method):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--evidence',type=Path,help='Create a NEW report; never overwrite an earlier record')
+    parser.add_argument('--release',choices=('licence','regional'),default='licence')
     args=parser.parse_args()
     try:
-        report=inspect(fetch)
+        report=inspect(fetch, '0636d7a399f85e0cbd9a77175d11bf735df1f3b82f89825954c7575da8f26951' if args.release=='regional' else 'c4f8c3af8d2e8b97058a8742cc5e5bb8d64b34890e345d12350d6adc0d2f8059')
         rendered=json.dumps(report,indent=2)+'\n'
         if args.evidence:
             with args.evidence.open('x') as out:out.write(rendered)
