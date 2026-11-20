@@ -58,6 +58,12 @@ function CookieConsent() {
 
 function Navbar() {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1181px)");
+    const closeDesktopMenu = () => { if (desktop.matches) setOpen(false); };
+    desktop.addEventListener("change", closeDesktopMenu);
+    return () => desktop.removeEventListener("change", closeDesktopMenu);
+  }, []);
   const links = [
     ["Services", "#services"],
     ["Our work", "#showcase"],

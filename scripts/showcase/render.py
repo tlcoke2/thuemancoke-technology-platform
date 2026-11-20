@@ -4,12 +4,14 @@ Requires Pillow and ffmpeg; output is a silent, captioned 34-second H.264 film.
 """
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from pathlib import Path
-import math, subprocess
+import math, subprocess, tempfile, os, shutil, json, hashlib
 ROOT=Path(__file__).resolve().parents[2]
-OUT=ROOT/'frontend/public/media/showcase';OUT.mkdir(parents=True,exist_ok=True)
+PUBLIC=ROOT/'frontend/public/media/showcase'
+# Never overwrite published assets: each render has a unique review directory.
+OUT=Path(tempfile.mkdtemp(prefix='tcl-showcase-review-'))
 W,H,FPS,DURATION=1280,720,20,34
-FONT='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
-BOLD='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+FONT=os.environ.get('TCL_SHOWCASE_FONT','DejaVuSans.ttf')
+BOLD=os.environ.get('TCL_SHOWCASE_BOLD_FONT','DejaVuSans-Bold.ttf')
 fonts={}
 def font(n,b=False):
  k=(n,b)
@@ -26,10 +28,12 @@ def ease(v):v=max(0,min(1,v));return 1-(1-v)**3
 sources={}
 for name in ['healthy','gordon']:
  capture=Path(__file__).parent/(name+'-source.jpg')
- im=Image.open(capture if capture.exists() else OUT/(name+'-website.webp')).convert('RGB')
+ im=Image.open(capture if capture.exists() else PUBLIC/(name+'-website.webp')).convert('RGB')
  im=im.crop((0,0,min(1330,im.width),min(840,im.height)))
  sources[name]=im
- im.thumbnail((960,610));im.save(OUT/(name+'-website.webp'),quality=78,method=6)
+ if capture.exists():
+  im.thumbnail((960,610));im.save(OUT/(name+'-website.webp'),quality=78,method=6)
+ else: shutil.copyfile(PUBLIC/(name+'-website.webp'),OUT/(name+'-website.webp'))
 logo=Image.open(ROOT/'frontend/public/images/thueman-coke-logo.png').convert('RGB')
 logo=ImageOps.fit(logo,(530,354),method=Image.Resampling.LANCZOS)
 def frame(t):
@@ -103,8 +107,8 @@ def frame(t):
  alpha=min(1,local/.3,(duration-local)/.3)
  if alpha<1:im=Image.blend(base,im,max(0,alpha))
  return im
-cmd=['ffmpeg','-hide_banner','-loglevel','error','-y','-f','rawvideo','-pixel_format','rgb24','-video_size',f'{W}x{H}','-framerate',str(FPS),'-i','-','-an','-c:v','libx264','-preset','medium','-crf','27','-pix_fmt','yuv420p','-movflags','+faststart',str(OUT/'tcl-build-showcase.mp4')]
-p=subprocess.Popen(cmd,stdin=subprocess.PIPE)
+# Fixed executable and arguments; shell execution and externally supplied commands are never used.
+p=subprocess.Popen(['ffmpeg','-hide_banner','-loglevel','error','-n','-f','rawvideo','-pixel_format','rgb24','-video_size','1280x720','-framerate','20','-i','-','-an','-c:v','libx264','-preset','medium','-crf','27','-pix_fmt','yuv420p','-movflags','+faststart','tcl-build-showcase.mp4'],cwd=OUT,stdin=subprocess.PIPE,shell=False)
 for i in range(FPS*DURATION):p.stdin.write(frame(i/FPS).tobytes())
 p.stdin.close();assert p.wait()==0
 frame(29.6).save(OUT/'tcl-build-showcase-poster.webp',quality=83,method=6)
@@ -113,3 +117,8 @@ board=Image.new('RGB',(960,540))
 for j,t in enumerate([2,7,13,19,25,31]):board.paste(frame(t).resize((320,270)),((j%3)*320,(j//3)*270))
 board.save(OUT/'storyboard.jpg',quality=90)
 print('Rendered',OUT/'tcl-build-showcase.mp4',(OUT/'tcl-build-showcase.mp4').stat().st_size,'bytes')
+
+shutil.copyfile(PUBLIC/'tcl-build-showcase.vtt',OUT/'tcl-build-showcase.vtt')
+assets={f.name:{'bytes':f.stat().st_size,'sha256':hashlib.sha256(f.read_bytes()).hexdigest()} for f in OUT.iterdir() if f.name!='storyboard.jpg'}
+(OUT/'asset-evidence.json').write_text(json.dumps({'format':'tcl-showcase-assets/v1','durationSeconds':DURATION,'audio':False,'fastStart':True,'sourceSites':['https://healthyconceptmedical.com/','https://www.gordoncolegal.com/'],'assets':assets},indent=2)+'\n')
+print('Review the completed output directory before copying assets and its evidence into the repository:',OUT)

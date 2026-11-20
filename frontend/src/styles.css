@@ -169,6 +169,8 @@ footer { background:#040e17; padding:60px 0 25px; border-top:1px solid var(--lin
   .nav-links { position:absolute; inset:78px 0 auto; padding:25px; background:#071827; display:none; flex-direction:column; align-items:stretch; }
   .nav-links.open { display:flex; }
   .mobile-menu { display:block; }
+}
+@media (max-width: 980px) {
   .hero-grid,.expertise-grid,.about-grid,.contact-grid,.section-heading { grid-template-columns:1fr; gap:45px; }
   .service-grid,.sector-grid,.steps { grid-template-columns:1fr 1fr; }
   .hero-visual { min-height:420px; }
@@ -252,3 +254,5 @@ footer { background:#040e17; padding:60px 0 25px; border-top:1px solid var(--lin
 @media(max-width:720px) { .showcase-projects{grid-template-columns:1fr}.showcase-film{border-radius:14px}.showcase-film figcaption{padding:14px 16px}.showcase-project a>div{padding:22px}.showcase-actions .btn{width:100%;justify-content:center} }
 
 @media(min-width:1181px){.nav-links{gap:18px}.nav-links>a:not(.btn){font-size:.86rem}}
+
+.showcase-project:focus-within{outline:3px solid #087da8;outline-offset:4px}.showcase-project a:focus-visible{outline-offset:-4px}
