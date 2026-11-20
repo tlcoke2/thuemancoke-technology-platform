@@ -53,6 +53,8 @@ def approved_release_101(environ):
         environ.get('GATEWAY_RELEASE_APPROVED')!='true' or
         environ.get('GATEWAY_RELEASE_ID')!='tec-epr-clinic-1.0.1'):
         raise ValueError('TEC EPR 1.0.1 private distribution is not authorised')
+    if environ.get('GATEWAY_101_BUILD') == 'regional-a55a2b114a35':
+        return _approved_regional_archive(environ)
     if environ.get('GATEWAY_101_BUILD') == 'licence-cd66121ca8df':
         return _approved_licence_archive(environ)
     if environ.get('GATEWAY_101_BUILD', '') not in ('', 'fresh-66907861e79d'):
@@ -163,3 +165,30 @@ def _approved_licence_archive(environ):
         sha256=expected['archiveSha256'], bytes=expected['archiveBytes'],
         publisher_spki_sha256=FINGERPRINT), etag
 
+
+
+REGIONAL_IDENTITY = {'archiveFilename': 'TEC-EPR-Clinic-Edition-1.0.1-Regional-a55a2b114a35.tar.gz', 'archiveSha256': '0636d7a399f85e0cbd9a77175d11bf735df1f3b82f89825954c7575da8f26951', 'archiveBytes': 266757194, 'signatureSha256': 'ebbe87da6dbde8898b1df16e8702615300a812cd5c4a013d9a72b9a99151872c', 'publisherSpkiSha256': 'b45e340ab53f4a50c2c38bfd8adfd481421568f346ab5cfb30a838d0855c269a'}
+
+
+def _approved_regional_archive(environ):
+    report = _read(environ.get('GATEWAY_REGIONAL_R2_READBACK_JSON'))
+    expected = dict(REGIONAL_IDENTITY, format='tec-regional-r2-readback/v1',
+                    publisherSignatureVerified=True, fullObjectReadback=True)
+    for key, value in expected.items():
+        if type(report.get(key)) is not type(value) or report[key] != value:
+            raise ValueError('Regional private readback mismatch: ' + key)
+    etag = environ.get('GATEWAY_R2_101_EXPECTED_ETAG', '')
+    if (not ETAG.fullmatch(etag) or report.get('etag') != etag or
+        environ.get('GATEWAY_R2_101_READBACK_SHA256') != REGIONAL_IDENTITY['archiveSha256'] or
+        environ.get('GATEWAY_LICENCE_SIGNATURE_READBACK_SHA256') != REGIONAL_IDENTITY['signatureSha256']):
+        raise ValueError('Regional private object identities do not match')
+    for name in ('GATEWAY_OWNER_COMMERCIAL_APPROVAL_REF', 'GATEWAY_MEDICAL_RELEASE_APPROVAL_REF',
+                 'GATEWAY_LICENCE_FINAL_UAT_REF', 'GATEWAY_LICENCE_SECURITY_REVIEW_REF'):
+        value = environ.get(name, '')
+        if not isinstance(value, str) or not 12 <= len(value.strip()) <= 240 or value.strip().lower().startswith(
+                ('synthetic', 'test', 'pending', 'todo')):
+            raise ValueError('Missing regional release evidence: ' + name)
+    return Release(id='tec-epr-clinic-1.0.1', bucket='tec-epr-private-releases',
+        object_key='tec-epr/clinic-edition/1.0.1/' + REGIONAL_IDENTITY['archiveFilename'],
+        sha256=REGIONAL_IDENTITY['archiveSha256'], bytes=REGIONAL_IDENTITY['archiveBytes'],
+        publisher_spki_sha256=FINGERPRINT), etag
