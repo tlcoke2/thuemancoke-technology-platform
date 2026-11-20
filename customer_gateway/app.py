@@ -175,9 +175,9 @@ def create_app(config, engine, provider=None, clock=time.time, mfa_provider=None
         if request.url.hostname != urlsplit(config.origin).hostname and request.url.path != "/health":
             return HTMLResponse("Invalid host", status_code=400)
         response = await call_next(request)
-        # HTML form POSTs under no-referrer can send Origin: null. Only the
-        # account page needs same-origin; keep callback codes fully suppressed.
-        policy = "same-origin" if request.url.path in ("/account", "/customer/requests", "/customer/billing", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/admin/software-requests", "/customer") else "no-referrer"
+        # HTML form POSTs under no-referrer can send Origin: null. Form pages
+        # need same-origin; callback codes and external destinations stay suppressed.
+        policy = "same-origin" if request.url.path in ("/account", "/customer/requests", "/customer/billing", "/auth/mfa", "/auth/mfa/enroll", "/admin", "/admin/customers", "/admin/software-requests", "/customer", "/api/downloads") else "no-referrer"
         response.headers.update({"Cache-Control": "no-store, no-transform", "Referrer-Policy": policy,
             "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",

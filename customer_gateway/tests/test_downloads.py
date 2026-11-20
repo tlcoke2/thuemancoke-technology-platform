@@ -156,7 +156,7 @@ class DownloadTests(unittest.TestCase):
             response=client.post('/api/downloads',data=data,headers={'origin':config.origin})
             self.assertEqual(response.status_code,200)
             self.assertEqual(response.headers['cache-control'],'no-store, no-transform')
-            self.assertEqual(response.headers['referrer-policy'],'no-referrer')
+            self.assertEqual(response.headers['referrer-policy'],'same-origin')
             self.assertIn('Your private download is ready', response.text)
         self.assertIn('<!doctype html>', response.text)
         self.assertIn('/assets/gateway.css', response.text)
