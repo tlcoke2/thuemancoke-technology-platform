@@ -1,0 +1,237 @@
+{
+  "format": "tec-regional-customer-acceptance/v1",
+  "archiveSha256": "0636d7a399f85e0cbd9a77175d11bf735df1f3b82f89825954c7575da8f26951",
+  "archiveBytes": 266757194,
+  "authenticatedCustomerSignIn": "PASS_WITH_WORKOS_MFA",
+  "existingApprovedCustomerGrantUsed": true,
+  "newGrantCreated": false,
+  "customerArchiveDownloaded": true,
+  "downloadSha256Matches": true,
+  "signatureBrowserDownload": "PASS",
+  "publicChecksAfterGuideFix": {
+    "format": "tec-passive-gateway-check/v1",
+    "checkedAtUtc": "2026-11-20T04:11:21.578243+00:00",
+    "origin": "https://customers.thuemancokelimited.com",
+    "checks": [
+      {
+        "path": "/health",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/ready",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/start",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/payments",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/help",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/help/customer-guide.txt",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/help/customer-guide.pdf",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/customer/billing",
+        "method": "GET",
+        "http": 401,
+        "expected": 401,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/customer/requests/export",
+        "method": "GET",
+        "http": 401,
+        "expected": 401,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/admin/software-requests",
+        "method": "GET",
+        "http": 401,
+        "expected": 401,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/admin/billing",
+        "method": "GET",
+        "http": 401,
+        "expected": 401,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/api/downloads",
+        "method": "POST",
+        "http": 401,
+        "expected": 401,
+        "pass": true,
+        "issues": []
+      }
+    ],
+    "pass": true,
+    "scope": "Passive public pages, security headers and unauthenticated denial only. Not a penetration test, authenticated UAT, archive readback or clinical assessment."
+  },
+  "guideDownload": {
+    "sixPages": true,
+    "servedPdfMatchesBuiltPdf": true
+  },
+  "localGatewayTests": {
+    "PASS": 288
+  },
+  "signedClinicalArchiveModified": false,
+  "privateKeysAccessed": false,
+  "originalManualTestsRepeated": false,
+  "scope": "Publication and customer download acceptance; no fresh clinical install, payment settlement, automated licence issuance or independent regulatory approval asserted.",
+  "verifiedAtUtc": "2026-11-20T04:24:07.125788+00:00",
+  "signatureBytes": 512,
+  "signatureSha256": "ebbe87da6dbde8898b1df16e8702615300a812cd5c4a013d9a72b9a99151872c",
+  "publicChecksAfterOriginFix": {
+    "format": "tec-passive-gateway-check/v1",
+    "checkedAtUtc": "2026-11-20T04:24:00.601774+00:00",
+    "origin": "https://customers.thuemancokelimited.com",
+    "checks": [
+      {
+        "path": "/health",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/ready",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/start",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/payments",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/help",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/help/customer-guide.txt",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/help/customer-guide.pdf",
+        "method": "GET",
+        "http": 200,
+        "expected": 200,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/customer/billing",
+        "method": "GET",
+        "http": 401,
+        "expected": 401,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/customer/requests/export",
+        "method": "GET",
+        "http": 401,
+        "expected": 401,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/admin/software-requests",
+        "method": "GET",
+        "http": 401,
+        "expected": 401,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/admin/billing",
+        "method": "GET",
+        "http": 401,
+        "expected": 401,
+        "pass": true,
+        "issues": []
+      },
+      {
+        "path": "/api/downloads",
+        "method": "POST",
+        "http": 401,
+        "expected": 401,
+        "pass": true,
+        "issues": []
+      }
+    ],
+    "pass": true,
+    "scope": "Passive public pages, security headers and unauthenticated denial only. Not a penetration test, authenticated UAT, archive readback or clinical assessment."
+  },
+  "integratedGatewaySourceRevision": "6de77be4f52f7460b1103d3ee40ff1c9c9186949",
+  "signatureFormFix": "same-origin Referrer-Policy on /api/downloads; strict Origin and CSRF validation unchanged"
+}
